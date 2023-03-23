@@ -25,26 +25,19 @@ const defaultCode = `
   function getRandomNumber(min, max) {
     return Math.floor(Math.random() * (max - min + 1) + min);
   }
-  
   const min = 1; // minimum value for random number
   const max = 100; // maximum value for random number
-  
   for (let i = 0; i < 10; i++) { // loop 10 times
     const randomNumber = getRandomNumber(min, max); // get a random number between min and max
     console.log("Random Number " + String(i+1): + String(randomNumber)); // output the random number to the console
   }
-  
   console.log("Done!"); // output "Done!" to the console when finished
-  
-
   let sumOfFactorials = 0;
   for (let i = 0; i < NUM_TRIALS; i++) {
     const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
     sumOfFactorials += factorial(randomInt);
   } /* Hello world */
-
   console.log('The sum of factorials is: ', sumOfFactorials);
-
   const NUM_TRIALS = 100;
   const MAX_NUMBER = 100;
 
@@ -132,30 +125,63 @@ const paintToCanvasExtension = EditorView.updateListener.of((update) => {
   renderAsCanvas(update.state);
 });
 
+function getOverlayHeight(v: EditorView) {
+  /* This isn't the right calculation right now, as the canvas height doesn't overflow correctly */
+  /* But it works for a static 500px .... */
+  return v.scrollDOM.clientHeight / MINIMAP_SCALE + "px";
+}
+function getOverlayTop(v: EditorView) {
+  return v.scrollDOM.scrollTop / MINIMAP_SCALE + "px";
+}
+
+const scrollExtension = EditorView.domEventHandlers({
+  scroll: (event, v) => {
+    overlayCanvas.style.height = getOverlayHeight(v);
+    overlayCanvas.style.top = getOverlayTop(v);
+  },
+});
+
 const editor = document.getElementById("editor") as HTMLElement;
 
 const view = new EditorView({
   state: EditorState.create({
     doc: defaultCode,
-    extensions: [basicSetup, javascript(), paintToCanvasExtension],
+    extensions: [
+      basicSetup,
+      javascript(),
+      paintToCanvasExtension,
+      scrollExtension,
+    ],
   }),
   parent: editor,
 });
 
 const MINIMAP_WIDTH = 180;
-const MINIMAP_SCALE = 4; /* Could make this configurable somehow later...*/
+const MINIMAP_SCALE = 3; /* Could make this configurable somehow later...*/
 
 // Create and append minimap
 const wrapper = document.createElement("div");
 const canvas = document.createElement("canvas");
+const overlayCanvas = document.createElement("canvas");
+
 wrapper.appendChild(canvas);
+wrapper.appendChild(overlayCanvas);
+
 editor.appendChild(wrapper);
 editor.classList.add("with-minimap");
 
+wrapper.style.position = "relative";
 wrapper.style.overflow = "hidden";
 wrapper.style.minWidth = MINIMAP_WIDTH + "px";
 wrapper.style.width = MINIMAP_WIDTH + "px";
 wrapper.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
+
+overlayCanvas.style.opacity = "0.1";
+overlayCanvas.style.backgroundColor = "black";
+overlayCanvas.style.position = "absolute";
+overlayCanvas.style.width = MINIMAP_WIDTH + "px";
+overlayCanvas.style.height = getOverlayHeight(view);
+overlayCanvas.style.top = getOverlayTop(view);
 
 const fontInfoMap: Map<string, { color: string }> = new Map();
 
@@ -235,17 +261,16 @@ function renderAsCanvas(state: EditorState) {
   const ctx = canvas.getContext("2d");
 
   if (ctx) {
-    const scale = 3;
-
     const fontFamily = "monospace";
     const fontSize = 12;
     const lineHeight = fontSize * 1.4;
     ctx.font = `${fontSize}px ${fontFamily}`;
 
+    /* TODO height+scale is challenging. Right now this clips overflow... */
     canvas.style.height = "100%";
     canvas.height = canvas.offsetHeight;
 
-    ctx.scale(1 / scale, 1 / scale);
+    ctx.scale(1 / MINIMAP_SCALE, 1 / MINIMAP_SCALE);
 
     // canvas.height = lines.length * lineHeight;
 
