@@ -1,0 +1,16 @@
+{
+  "name": "cm-canvas",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@codemirror/lang-javascript": "^6.1.4",
+    "@lezer/common": "^1.0.2",
+    "codemirror": "^6.0.1",
+    "lezer": "^0.13.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.2",
+    "vite": "^4.2.0"
+  }
+}
