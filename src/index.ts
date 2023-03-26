@@ -17,7 +17,7 @@ const defaultCode = `
     } else {
       return n * factorial(n - 1);
     }
-  } /* Hello world */
+/* Ignored */  } /* Hello world */
 
   const NUM_TRIALS = 100;
   const MAX_NUMBER = 100;
@@ -161,8 +161,8 @@ const view = new EditorView({
   parent: editor,
 });
 
-const MINIMAP_WIDTH = 300;
-const MINIMAP_SCALE = 2; /* Could make this configurable somehow later...*/
+const MINIMAP_WIDTH = 400;
+const MINIMAP_SCALE = 1; /* Could make this configurable somehow later...*/
 
 // Create and append minimap
 const wrapper = document.createElement("div");
@@ -191,7 +191,7 @@ overlayCanvas.style.top = getOverlayTop(view);
 const fontInfoMap: Map<string, { color: string; font: string }> = new Map();
 
 type LineText = Array<{ text: string; tags?: string }>;
-type Selection = Array<{ from: number; to: number; continues?: boolean }>;
+type Selection = Array<{ from: number; to: number; continues: boolean }>;
 
 function renderAsCanvas(state: EditorState) {
   const parser = javascript().language.parser;
@@ -248,7 +248,10 @@ function renderAsCanvas(state: EditorState) {
   const text = Text.of(view.state.doc.toString().split("\n"));
   const tree = parser.parse(text.toString());
 
-  const lines: Array<{ text: LineText; selections: Selection }> = [];
+  const lines: Array<{
+    text: LineText;
+    selections: Selection;
+  }> = [];
 
   const foldedRangesCursor = foldedRanges(state).iter();
 
@@ -261,8 +264,6 @@ function renderAsCanvas(state: EditorState) {
 
   for (let i = 1; i <= text.lines; i++) {
     const line = text.line(i);
-    let pos = line.from;
-
     /* FOLDED RANGES */
 
     // Iterate through folded ranges until we're at or past the current line
@@ -298,31 +299,27 @@ function renderAsCanvas(state: EditorState) {
     /* SELECTION */
     const selectionsInLine: Selection = [];
     do {
-      const current = selections[selectionIndex];
-      if (!current) {
+      if (!selections[selectionIndex]) {
         break;
       }
+      const { from: sFrom, to: sTo } = selections[selectionIndex];
 
-      const startsInLine = lineFrom <= current.from && lineTo >= current.from;
-      const endsInLine = lineFrom <= current.to && lineTo >= current.to;
-      const crossesLine = lineFrom > current.from && lineTo < current.to;
+      const startsInLine = lineFrom <= sFrom && lineTo >= sFrom;
+      const endsInLine = lineFrom <= sTo && lineTo >= sTo;
+      const crossesLine = lineFrom > sFrom && lineTo < sTo;
 
       if (startsInLine || endsInLine || crossesLine) {
-        console.log(
-          lineFrom,
-          lineTo,
-          current,
-          startsInLine,
-          endsInLine,
-          crossesLine
-        );
         // Only add if selection length is greater than 0
-        if (current.from != current.to) {
+        if (sFrom != sTo) {
           selectionsInLine.push({
-            from: Math.max(current.from - lineFrom, 0),
-            to: Math.min(current.to - lineFrom, lineTo - lineFrom),
+            from: Math.max(sFrom - lineFrom, 0),
+            to: Math.min(sTo - lineFrom, lineTo - lineFrom),
             continues: !endsInLine,
           });
+
+          if (!endsInLine) {
+            break;
+          }
         }
       } else {
         break;
@@ -330,17 +327,18 @@ function renderAsCanvas(state: EditorState) {
 
       selectionIndex += 1;
     } while (selectionIndex < selections.length);
-    if (selectionsInLine[selectionsInLine.length - 1]?.continues) {
-      selectionIndex -= 1;
-    }
 
     if (line.text === "") {
-      lines.push({ text: [{ text: "" }], selections: selectionsInLine });
+      lines.push({
+        text: [{ text: "" }],
+        selections: selectionsInLine,
+      });
       continue;
     }
 
     const spans: LineText = [];
 
+    let pos = lineFrom;
     highlightTree(
       tree,
       highlighter,
@@ -362,10 +360,60 @@ function renderAsCanvas(state: EditorState) {
     }
 
     if (appendingToPreviousLine) {
-      lines[lines.length - 1].text = lines[lines.length - 1].text.concat(spans);
-    } else {
-      lines.push({ text: spans, selections: selectionsInLine });
+      const prevLine = lines[lines.length - 1];
+
+      // Add spacer, trailing line text to previous line
+      const spacer = { text: "…" };
+      prevLine.text = prevLine.text.concat([spacer, ...spans]);
+
+      // Update previous selections
+      if (prevLine.selections.length > 0) {
+        // If our last selection continued, add a selection for the spacer
+        if (prevLine.selections[prevLine.selections.length - 1].continues) {
+          prevLine.selections[prevLine.selections.length - 1].to += 1;
+        }
+
+        // Selections in this line can no longer continue, as we're appending to it
+        prevLine.selections = prevLine.selections.map((s) => ({
+          ...s,
+          continues: false,
+        }));
+      }
+
+      // Adjust trailing line selection positions
+      const spansLength = spans.reduce((p, c) => p + c.text.length, 0);
+      const prevLength = prevLine.text.reduce((v, c) => v + c.text.length, 0);
+      let adjustedSelections = selectionsInLine.map((s) => ({
+        ...s,
+        from: s.from + prevLength - spansLength,
+        to: s.to + prevLength - spansLength,
+      }));
+
+      if (prevLine.selections.length > 0 && adjustedSelections.length > 0) {
+        const last = prevLine.selections.slice(-1)[0];
+        const firstAdditional = adjustedSelections.slice(-1)[0];
+        // Combine consecutive selections if possible
+        if (last.to === firstAdditional.from) {
+          prevLine.selections[prevLine.selections.length - 1] = {
+            from: last.from,
+            to: firstAdditional.to,
+            continues: firstAdditional.continues,
+          };
+
+          // Remove that selection
+          adjustedSelections = adjustedSelections.slice(1);
+        }
+      }
+
+      // Add remaining trailing line selections to previous line
+      prevLine.selections = prevLine.selections.concat(adjustedSelections);
+
+      console.log(prevLine.selections);
+      continue;
     }
+
+    // Otherwise, just append the line as normal
+    lines.push({ text: spans, selections: selectionsInLine });
   }
 
   const ctx = canvas.getContext("2d");
@@ -414,12 +462,14 @@ function renderAsCanvas(state: EditorState) {
             lineHeight
           );
           ctx.fillStyle = "green";
+          ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
           ctx.fill();
         }
 
         ctx.beginPath();
         ctx.rect(offset.width, y - lineHeight, text.width, lineHeight);
         ctx.fillStyle = "red";
+        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
         ctx.fill();
 
         //         ctx.beginPath();
@@ -492,7 +542,7 @@ function getCursorPosition(c, event) {
   const transformedX = editorRect.left + scaledX;
   const transformedY = editorRect.top + scaledY;
 
-  console.log(transformedX, transformedY);
+  // console.log(transformedX, transformedY);
 
   const docPos = view.posAtCoords({ x: transformedX, y: transformedY });
   if (docPos) {
