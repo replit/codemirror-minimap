@@ -421,7 +421,7 @@ function renderAsCanvas(state: EditorState) {
   if (ctx) {
     // const fontFamily = "monospace";
     const fontSize = 12;
-    const lineHeight = fontSize * 1.4;
+    const lineHeight = Math.round(fontSize * 1.4);
     // ctx.font = `${fontSize}px ${fontFamily}`;
 
     /* TODO height+scale is challenging. Right now this clips overflow... */
@@ -449,34 +449,22 @@ function renderAsCanvas(state: EditorState) {
       }
 
       for (let j = 0; j < line.selections.length; j++) {
-        const s = line.selections[j];
-        const offset = ctx.measureText(lineText.slice(0, s.from));
-        const text = ctx.measureText(lineText.slice(s.from, s.to));
+        const selection = line.selections[j];
+        const prefix = ctx.measureText(lineText.slice(0, selection.from));
+        const text = ctx.measureText(
+          lineText.slice(selection.from, selection.to)
+        );
 
-        if (s.continues) {
-          ctx.beginPath();
-          ctx.rect(
-            offset.width,
-            y - lineHeight,
-            canvas.width - offset.width,
-            lineHeight
-          );
-          ctx.fillStyle = "green";
-          ctx.fillStyle = "rgba(0, 0, 0, 0.1)";
-          ctx.fill();
-        }
-
+        console.log("Painting at ", y - lineHeight, " height", lineHeight);
         ctx.beginPath();
-        ctx.rect(offset.width, y - lineHeight, text.width, lineHeight);
-        ctx.fillStyle = "red";
-        ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+        ctx.rect(
+          prefix.width,
+          y - lineHeight,
+          selection.continues ? canvas.width - prefix.width : text.width,
+          lineHeight
+        );
+        ctx.fillStyle = getSelectionInfo().backgroundColor;
         ctx.fill();
-
-        //         ctx.beginPath();
-        //         line.selection[j].
-        // ctx.rect(20, 20, 150, 100);
-        // ctx.fillStyle = "red";
-        // ctx.fill();
       }
     }
 
@@ -514,6 +502,22 @@ function getFontInfo(token: LineText[number]): {
 
   // Clean up and return
   wrapper.removeChild(mockToken);
+  return result;
+}
+
+function getSelectionInfo(): { backgroundColor: string } {
+  // Query for existing selection
+  const selection = editor.querySelector(".cm-selectionBackground");
+
+  // If null, temporarily return transparent. After one paint, we'll get the color
+  if (!selection) {
+    return { backgroundColor: "rgba(0, 0, 0, 0)" };
+  }
+
+  // Get style information
+  const style = window.getComputedStyle(selection);
+  const result = { backgroundColor: style.backgroundColor };
+
   return result;
 }
 
