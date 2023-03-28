@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Codemirror Minimap</title>
+  <link rel="shortcut icon" href="#">
+  <style>
+    #editor {
+      max-height: 500px;
+      max-width: 100%;
+      overflow-y: auto;
+      border: 1px solid gray;
+    }
+
+    .btn {
+      background-color: #9e9e9e;
+      border-radius: 4px;
+      color: #fff;
+      display: inline-block;
+      margin-top: 8px;
+      margin-right: 4px;
+      padding: 4px;
+      text-decoration: none;
+    }
+
+    .with-minimap {
+      display: flex;
+      flex-direction: row;
+    }
+
+    .with-minimap .cm-editor {
+      flex-grow: 1;
+      overflow-x: auto;
+    }
+
+    .with-minimap .cm-focused {
+      outline: none;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="editor"></div>
+
+  <a class="btn" href="/?length=short">Short</a>
+  <a class="btn" href="/?length=long">Long</a>
+
+  <script type="module" src="./index.ts"></script>
+</body>
+
+</html>

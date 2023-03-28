@@ -1,5 +1,11 @@
 import { EditorView, drawSelection } from "@codemirror/view";
-import { EditorState, Text, SelectionRange } from "@codemirror/state";
+import {
+  EditorState,
+  Text,
+  SelectionRange,
+  Extension,
+} from "@codemirror/state";
+import {} from "@codemirror/commands";
 import {
   syntaxTree,
   highlightingFor,
@@ -9,117 +15,7 @@ import { basicSetup } from "codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { highlightTree, getStyleTags, Highlighter } from "@lezer/highlight";
 import { LRParser } from "@lezer/lr";
-
-const defaultCode = `
-  function factorial(n) {
-    if (n === 0 || n === 1) {
-      return 1;
-    } else {
-      return n * factorial(n - 1);
-    }
-/* Ignored */  } /* Hello world */
-
-  const NUM_TRIALS = 100;
-  const MAX_NUMBER = 100;
-
-  function getRandomNumber(min, max) {
-    return Math.floor(Math.random() * (max - min + 1) + min);
-  }
-  const min = 1; // minimum value for random number
-  const max = 100; // maximum value for random number
-  for (let i = 0; i < 10; i++) { // loop 10 times
-    const randomNumber = getRandomNumber(min, max); // get a random number between min and max
-    console.log("Random Number " + String(i+1): + String(randomNumber)); // output the random number to the console
-  }
-  console.log("Done!"); // output "Done!" to the console when finished
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-  console.log('The sum of factorials is: ', sumOfFactorials);
-  const NUM_TRIALS = 100;
-  const MAX_NUMBER = 100;
-
-
-
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-
-  console.log('The sum of factorials is: ', sumOfFactorials);
-
-  const NUM_TRIALS = 100;
-  const MAX_NUMBER = 100;
-
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-
-  console.log('The sum of factorials is: ', sumOfFactorials);
-
-
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-
-  console.log('The sum of factorials is: ', sumOfFactorials);
-
-  const NUM_TRIALS = 100;
-  const MAX_NUMBER = 100;
-
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-
-  console.log('The sum of factorials is: ', sumOfFactorials);
-
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-
-  console.log('The sum of factorials is: ', sumOfFactorials);
-
-  const NUM_TRIALS = 100;
-  const MAX_NUMBER = 100;
-
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-
-  console.log('The sum of factorials is: ', sumOfFactorials);
-
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-
-  console.log('The sum of factorials is: ', sumOfFactorials);
-
-  const NUM_TRIALS = 100;
-  const MAX_NUMBER = 100;
-
-  let sumOfFactorials = 0;
-  for (let i = 0; i < NUM_TRIALS; i++) {
-    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
-    sumOfFactorials += factorial(randomInt);
-  } /* Hello world */
-
-  console.log('The sum of factorials is: ', sumOfFactorials);
-`;
+// import { getMatches } from "@codemirror/search";
 
 const paintToCanvasExtension = EditorView.updateListener.of((update) => {
   renderAsCanvas(update.state);
@@ -143,24 +39,6 @@ const scrollExtension = EditorView.domEventHandlers({
 
 const editor = document.getElementById("editor") as HTMLElement;
 
-const view = new EditorView({
-  state: EditorState.create({
-    doc: defaultCode,
-    extensions: [
-      /* For demo */
-      basicSetup,
-      javascript(),
-      drawSelection(),
-      EditorState.allowMultipleSelections.of(true),
-
-      /* Minimap extensions */
-      paintToCanvasExtension,
-      scrollExtension,
-    ],
-  }),
-  parent: editor,
-});
-
 const MINIMAP_WIDTH = 400;
 const MINIMAP_SCALE = 1; /* Could make this configurable somehow later...*/
 
@@ -169,6 +47,9 @@ const wrapper = document.createElement("div");
 const canvas = document.createElement("canvas");
 const overlayCanvas = document.createElement("canvas");
 
+// TEMP
+overlayCanvas.style.display = "none";
+
 wrapper.appendChild(canvas);
 wrapper.appendChild(overlayCanvas);
 
@@ -176,7 +57,7 @@ editor.appendChild(wrapper);
 editor.classList.add("with-minimap");
 
 wrapper.style.position = "relative";
-wrapper.style.overflow = "hidden";
+// wrapper.style.overflow = "hidden";
 wrapper.style.minWidth = MINIMAP_WIDTH + "px";
 wrapper.style.width = MINIMAP_WIDTH + "px";
 wrapper.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
@@ -188,7 +69,10 @@ overlayCanvas.style.width = MINIMAP_WIDTH + "px";
 overlayCanvas.style.height = getOverlayHeight(view);
 overlayCanvas.style.top = getOverlayTop(view);
 
-const fontInfoMap: Map<string, { color: string; font: string }> = new Map();
+const fontInfoMap: Map<
+  string,
+  { color: string; font: string; fontSize: number }
+> = new Map();
 
 type LineText = Array<{ text: string; tags?: string }>;
 type Selection = Array<{ from: number; to: number; continues: boolean }>;
@@ -196,26 +80,26 @@ type Selection = Array<{ from: number; to: number; continues: boolean }>;
 function renderAsCanvas(state: EditorState) {
   const parser = javascript().language.parser;
 
-  const isScrollingHorizontally =
-    view.scrollDOM.clientWidth <= view.scrollDOM.scrollWidth;
-  // console.log(isScrollingHorizontally);
+  // const isScrollingHorizontally =
+  //   view.scrollDOM.clientWidth <= view.scrollDOM.scrollWidth;
+  // // console.log(isScrollingHorizontally);
 
-  if (isScrollingHorizontally) {
-    const percentScrolled =
-      view.scrollDOM.clientWidth / view.scrollDOM.scrollWidth;
+  // if (isScrollingHorizontally) {
+  //   const percentScrolled =
+  //     view.scrollDOM.clientWidth / view.scrollDOM.scrollWidth;
 
-    const newMinimapWidth = MINIMAP_WIDTH * percentScrolled;
+  //   const newMinimapWidth = MINIMAP_WIDTH * percentScrolled;
 
-    // Avoid minor flapping by only updating when difference is > 2px from what it should be?
-    if (Math.abs(newMinimapWidth - wrapper.clientWidth) > 2) {
-      wrapper.style.minWidth = MINIMAP_WIDTH * percentScrolled + "px";
-      wrapper.style.width = MINIMAP_WIDTH * percentScrolled + "px";
-    }
+  //   // Avoid minor flapping by only updating when difference is > 2px from what it should be?
+  //   if (Math.abs(newMinimapWidth - wrapper.clientWidth) > 2) {
+  //     wrapper.style.minWidth = MINIMAP_WIDTH * percentScrolled + "px";
+  //     wrapper.style.width = MINIMAP_WIDTH * percentScrolled + "px";
+  //   }
 
-    // console.log(percentScrolled);
-  }
+  //   // console.log(percentScrolled);
+  // }
 
-  const value = editor.clientWidth - view.scrollDOM.clientWidth;
+  // const value = editor.clientWidth - view.scrollDOM.clientWidth;
   // console.log("Minimap width", value);
 
   // console.log(
@@ -244,6 +128,24 @@ function renderAsCanvas(state: EditorState) {
 
   const remainingWidth = 0;
   // const minimapWidth = ((remainingWidth) * minimapCharWidth) / ()
+
+  /*
+    if (!query.valid) {
+    return [];
+  }
+
+  const ranges = [];
+  const cursor = query.getCursor(doc);
+
+  let iter = cursor.next();
+  while (!iter.done && ranges.length < limit) {
+    ranges.push(iter.value);
+
+    iter = cursor.next();
+  }
+
+  return ranges;
+  */
 
   const text = Text.of(view.state.doc.toString().split("\n"));
   const tree = parser.parse(text.toString());
@@ -420,31 +322,47 @@ function renderAsCanvas(state: EditorState) {
 
   if (ctx) {
     // const fontFamily = "monospace";
-    const fontSize = 12;
-    const lineHeight = Math.round(fontSize * 1.4);
+    // const fontSize = 12;
+    const lineHeightMultiple = 1;
     // ctx.font = `${fontSize}px ${fontFamily}`;
 
     /* TODO height+scale is challenging. Right now this clips overflow... */
-    canvas.style.height = "100%";
-    canvas.height = canvas.offsetHeight;
+    // canvas.style.height = "100%";
+    // canvas.height = canvas.offsetHeight;
 
     ctx.scale(1 / MINIMAP_SCALE, 1 / MINIMAP_SCALE);
-
+    // canvas.height = lineHeight * lines.length;
     // canvas.height = lines.length * lineHeight;
+    let heightOffset = 0;
+    // canvas.height +=
 
+    canvas.height = 2500;
+    // ctx.scale(1 / 2, 1 / 2);
+    // Each time canvas height is set, canvas contents are cleared
+
+    console.log("Painting..");
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       let x = 0;
 
-      const y = (i + 1) * lineHeight; /* line height */
+      // const y = (i + 1) * lineHeightMultiple; /* line height */
 
       const lineText = line.text.map((t) => t.text).join("");
 
+      let lineHeight = 0;
+
       for (let j = 0; j < line.text.length; j++) {
         ctx.textBaseline = "ideographic";
-        ctx.fillStyle = getFontInfo(line.text[j]).color;
-        ctx.font = getFontInfo(line.text[j]).font;
-        ctx.fillText(line.text[j].text, x, y);
+        const info = getFontInfo(line.text[j]);
+        // console.log(info);
+        ctx.fillStyle = info.color;
+        ctx.font = info.font;
+        // console.log(ctx.font);
+
+        lineHeight = Math.max(lineHeight, info.fontSize);
+
+        ctx.fillText(line.text[j].text, x, heightOffset + lineHeight);
+
         x += ctx.measureText(line.text[j].text).width;
       }
 
@@ -455,19 +373,28 @@ function renderAsCanvas(state: EditorState) {
           lineText.slice(selection.from, selection.to)
         );
 
-        console.log("Painting at ", y - lineHeight, " height", lineHeight);
+        // console.log("Painting at ", heightOffset, " height", lineHeight);
         ctx.beginPath();
         ctx.rect(
           prefix.width,
-          y - lineHeight,
+          heightOffset,
           selection.continues ? canvas.width - prefix.width : text.width,
           lineHeight
         );
         ctx.fillStyle = getSelectionInfo().backgroundColor;
+        console.log(getSelectionInfo().backgroundColor);
         ctx.fill();
       }
+
+      // canvas.height += lineHeight;
+      heightOffset += lineHeight;
+
+      // canvas.height += Math.round(lineHeightMultiple * )
     }
 
+    console.log(canvas.height);
+
+    // canvas.height = totalLineHeight;
     ctx.restore();
   }
 }
@@ -475,12 +402,9 @@ function renderAsCanvas(state: EditorState) {
 function getFontInfo(token: LineText[number]): {
   color: string;
   font: string;
+  fontSize: number;
 } {
-  const tags = token.tags;
-  if (!tags) {
-    // If no tags, fall back to editor color?
-    return getFontInfo({ text: token.text, tags: "cm-editor" });
-  }
+  const tags = token.tags ?? "";
   const cached = fontInfoMap.get(tags);
   if (cached) {
     return cached;
@@ -489,7 +413,7 @@ function getFontInfo(token: LineText[number]): {
   // Create a mock token
   const mockToken = document.createElement("span");
   mockToken.setAttribute("class", tags);
-  wrapper.appendChild(mockToken);
+  view.contentDOM.appendChild(mockToken);
 
   // Get style information and store it
   const style = window.getComputedStyle(mockToken);
@@ -497,25 +421,53 @@ function getFontInfo(token: LineText[number]): {
   const result = {
     color: style.color,
     font: `${style.fontStyle} ${style.fontWeight} ${fontSize}px ${style.fontFamily}`,
+    fontSize,
   };
   fontInfoMap.set(tags, result);
 
   // Clean up and return
-  wrapper.removeChild(mockToken);
+  view.contentDOM.removeChild(mockToken);
   return result;
 }
 
+let storedSelectionInfo: { backgroundColor: string } | undefined;
 function getSelectionInfo(): { backgroundColor: string } {
+  let result;
+  if (storedSelectionInfo) {
+    result = storedSelectionInfo;
+  } else {
+    result = { backgroundColor: "rgba(0, 0, 0, 0)" };
+  }
   // Query for existing selection
   const selection = editor.querySelector(".cm-selectionBackground");
 
+  // // If null, temporarily return transparent. After one paint, we'll get the color
+  // if (!selection) {
+  //   return { backgroundColor: "rgba(0, 0, 0, 0)" };
+  // }
+
+  // Get style information
+  if (selection) {
+    const style = window.getComputedStyle(selection);
+    result = { backgroundColor: style.backgroundColor };
+  }
+
+  storedSelectionInfo = result;
+
+  return result;
+}
+
+function getSearchInfo(): { backgroundColor: string } {
+  // Query for existing search
+  const search = editor.querySelector(".cm-searchMatch");
+
   // If null, temporarily return transparent. After one paint, we'll get the color
-  if (!selection) {
+  if (!search) {
     return { backgroundColor: "rgba(0, 0, 0, 0)" };
   }
 
   // Get style information
-  const style = window.getComputedStyle(selection);
+  const style = window.getComputedStyle(search);
   const result = { backgroundColor: style.backgroundColor };
 
   return result;
