@@ -6,8 +6,12 @@ specifiers:
   '@codemirror/language': ^6.0.0
   '@codemirror/state': ^6.0.0
   '@codemirror/view': ^6.0.0
+  '@lezer/highlight': ^1.1.4
   codemirror: ^6.0.1
   vite: ^2.3.8
+
+dependencies:
+  '@lezer/highlight': 1.1.4
 
 devDependencies:
   '@codemirror/buildhelper': 0.1.16
@@ -151,7 +155,6 @@ packages:
 
   /@lezer/common/1.0.2:
     resolution: {integrity: sha512-SVgiGtMnMnW3ActR8SXgsDhw7a0w0ChHSYAyAUxxrOiJ1OqYWEKk/xJd84tTSPo1mo6DXLObAJALNnd0Hrv7Ng==}
-    dev: true
 
   /@lezer/generator/1.2.2:
     resolution: {integrity: sha512-O//eH9jTPM1GnbZruuD23xU68Pkuragonn1DEIom4Kt/eJN/QFt7Vzvp1YjV/XBmoUKC+2ySPgrA5fMF9FMM2g==}
@@ -165,7 +168,6 @@ packages:
     resolution: {integrity: sha512-IECkFmw2l7sFcYXrV8iT9GeY4W0fU4CxX0WMwhmhMIVjoDdD1Hr6q3G2NqVtLg/yVe5n7i4menG3tJ2r4eCrPQ==}
     dependencies:
       '@lezer/common': 1.0.2
-    dev: true
 
   /@lezer/javascript/1.4.1:
     resolution: {integrity: sha512-Hqx36DJeYhKtdpc7wBYPR0XF56ZzIp0IkMO/zNNj80xcaFOV4Oj/P7TQc/8k2TxNhzl7tV5tXS8ZOCPbT4L3nA==}

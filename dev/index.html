@@ -8,46 +8,34 @@
   <style>
     #editor {
       max-height: 500px;
-      max-width: 100%;
       overflow-y: auto;
       border: 1px solid gray;
-    }
-
-    .btn {
-      background-color: #9e9e9e;
-      border-radius: 4px;
-      color: #fff;
-      display: inline-block;
-      margin-top: 8px;
-      margin-right: 4px;
-      padding: 4px;
-      text-decoration: none;
-    }
-
-    .with-minimap {
-      display: flex;
-      flex-direction: row;
-    }
-
-    .with-minimap .cm-editor {
-      flex-grow: 1;
-      overflow-x: auto;
-    }
-
-    .with-minimap .cm-focused {
-      outline: none;
     }
   </style>
 </head>
 
 <body>
 
+  <!-- Editor -->
   <div id="editor"></div>
-
-  <a class="btn" href="/?length=short">Short</a>
-  <a class="btn" href="/?length=long">Long</a>
-
   <script type="module" src="./index.ts"></script>
+
+  <!-- Controls -->
+  <div style="margin-top: 8px">
+    <script>
+      function replaceHash(k, v) {
+        window.location.hash = window.location.hash.split("#")
+          .filter(kv => !kv.startsWith(k + "="))
+          .concat([`${k}=${v}`])
+          .join("#");
+      }
+    </script>
+    <button onclick="replaceHash('length', 'short')">Short Text</button>
+    <button onclick="replaceHash('length', 'long')">Long Text</button>
+    <button onclick="replaceHash('minimap', 'show')">Show Minimap</button>
+    <button onclick="replaceHash('minimap', 'hide')">Hide Minimap</button>
+  </div>
+
 </body>
 
 </html>

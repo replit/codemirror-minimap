@@ -17,15 +17,14 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite ./dev",
-    "build": "cm-buildhelper src/index.new.ts",
-    "test": "cm-runtests",
-    "prepare": "npm run build"
+    "build": "cm-buildhelper ./src/index.new.ts"
   },
   "peerDependencies": {
     "@codemirror/language": "^6.0.0",
     "@codemirror/state": "^6.0.0",
     "@codemirror/view": "^6.0.0",
     "@lezer/common": "^1.0.2",
+    "@lezer/highlight": "^1.1.4",
     "lezer": "^0.13.5"
   },
   "devDependencies": {
@@ -40,5 +39,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/replit/codemirror-minimap.git"
+  },
+  "dependencies": {
+    "@lezer/highlight": "^1.1.4"
   }
 }
