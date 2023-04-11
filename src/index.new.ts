@@ -16,6 +16,34 @@ type LineSelection = { from: number; to: number; continues: boolean };
 type FontInfo = { color: string; font: string; fontSize: number };
 type SelectionInfo = { backgroundColor: string };
 
+const minimapTheme = EditorView.theme({
+  "&": {
+    display: "flex",
+    flexDirection: "row",
+    height: "100%",
+    overflowY: "auto",
+  },
+  "& .cm-focused": {
+    outline: "none",
+  },
+  "& .cm-scroller": {
+    flexGrow: 1,
+  },
+  ".overlay": {
+    backgroundColor: "black",
+    opacity: "0.2",
+    position: "absolute",
+    right: 0,
+    top: 0,
+    "&:hover": {
+      opacity: "0.15",
+    },
+  },
+});
+
+const CANVAS_MAX_WIDTH = 120;
+const SCALE = 3;
+
 class Minimap {
   private _container: HTMLDivElement;
   private _canvas: HTMLCanvasElement;
@@ -27,13 +55,17 @@ class Minimap {
   public constructor(view: EditorView) {
     this._view = view;
 
+    console.log(this._view);
+
     this._canvas = document.createElement("canvas");
     this._container = document.createElement("div");
 
+    this._canvas.style.maxWidth = CANVAS_MAX_WIDTH + "px";
+
+    this._canvas.addEventListener("click", (e) => this.handleClick(e));
+
     this._container.style.position = "relative";
-    this._container.style.minWidth = MINIMAP_WIDTH + "px";
-    this._container.style.width = MINIMAP_WIDTH + "px";
-    this._container.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
+    this._container.style.overflow = "hidden";
 
     this._container.appendChild(this._canvas);
     this._view.dom.appendChild(this._container);
@@ -202,7 +234,6 @@ class Minimap {
         // Add remaining trailing line selections to previous line
         prevLine.selections = prevLine.selections.concat(adjustedSelections);
 
-        console.log(prevLine.selections);
         continue;
       }
 
@@ -214,37 +245,41 @@ class Minimap {
   }
 
   public render(lines: Array<LineData>) {
+    const containerX = this._view.scrollDOM.clientWidth;
+    const contentX = this._view.scrollDOM.scrollWidth;
+
+    if (containerX < contentX) {
+      this._container.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
+    } else {
+      this._container.style.boxShadow = "inherit";
+    }
+
+    if (containerX <= SCALE * CANVAS_MAX_WIDTH) {
+      const ratio = containerX / (SCALE * CANVAS_MAX_WIDTH);
+
+      this._canvas.width = CANVAS_MAX_WIDTH * ratio * 2;
+    } else {
+      this._canvas.width = CANVAS_MAX_WIDTH * 2;
+    }
+
+    this._canvas.height = this._container.clientHeight * 2;
+    this._canvas.style.height = this._container.clientHeight + "px";
+
     const context = this._canvas.getContext("2d");
     if (!context) {
       return;
     }
 
-    const MINIMAP_SCALE = 1;
-    // const fontFamily = "monospace";
-    // const fontSize = 12;
-    const lineHeightMultiple = 1;
-    // ctx.font = `${fontSize}px ${fontFamily}`;
+    context.clearRect(0, 0, this._canvas.width, this._canvas.height);
 
-    /* TODO height+scale is challenging. Right now this clips overflow... */
-    // canvas.style.height = "100%";
-    // canvas.height = canvas.offsetHeight;
+    context.scale(1 / SCALE, 1 / SCALE);
 
-    context.scale(1 / MINIMAP_SCALE, 1 / MINIMAP_SCALE);
-    // canvas.height = lineHeight * lines.length;
-    // canvas.height = lines.length * lineHeight;
-    let heightOffset = 0;
-    // canvas.height +=
+    const { top: paddingTop } = this._view.documentPadding;
+    let heightOffset = paddingTop;
 
-    this._canvas.height = 2500;
-    // ctx.scale(1 / 2, 1 / 2);
-    // Each time canvas height is set, canvas contents are cleared
-
-    console.log("Painting..");
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       let x = 0;
-
-      // const y = (i + 1) * lineHeightMultiple; /* line height */
 
       const lineText = line.text.map((t) => t.text).join("");
 
@@ -253,10 +288,9 @@ class Minimap {
       for (let j = 0; j < line.text.length; j++) {
         context.textBaseline = "ideographic";
         const info = this.getFontInfo(line.text[j]);
-        // console.log(info);
+
         context.fillStyle = info.color;
         context.font = info.font;
-        // console.log(ctx.font);
 
         lineHeight = Math.max(lineHeight, info.fontSize);
 
@@ -272,26 +306,23 @@ class Minimap {
           lineText.slice(selection.from, selection.to)
         );
 
-        // console.log("Painting at ", heightOffset, " height", lineHeight);
         context.beginPath();
         context.rect(
           prefix.width,
           heightOffset,
-          selection.continues ? this._canvas.width - prefix.width : text.width,
+          selection.continues
+            ? this._canvas.width * SCALE - prefix.width
+            : text.width,
           lineHeight
         );
         context.fillStyle = this.getSelectionInfo().backgroundColor;
-        console.log(this.getSelectionInfo().backgroundColor);
+
         context.fill();
       }
 
-      // canvas.height += lineHeight;
       heightOffset += lineHeight;
-
-      // canvas.height += Math.round(lineHeightMultiple * )
     }
 
-    // canvas.height = totalLineHeight;
     context.restore();
   }
 
@@ -353,46 +384,89 @@ class Minimap {
 
     return result;
   }
+
+  private handleClick(event: MouseEvent) {
+    console.log("Click event", event.clientX, event.clientY);
+
+    // console.log("Line at ", Number(event.clientY / (12 / SCALE / 2)));
+
+    const position = this._view.posAtCoords({
+      x: event.clientX / (12 / SCALE / 2),
+      y: event.clientY / (12 / SCALE / 2),
+    });
+
+    // this._view.dispatch({
+    //   selection
+    //   scrollIntoView: true,
+    // })
+    event.preventDefault();
+    event.stopPropagation();
+  }
 }
 
-const minimapTheme = EditorView.theme({
-  "&": {
-    display: "flex",
-    flexDirection: "row",
-    overflowY: "auto",
-  },
-  "& .cm-focused": {
-    outline: "none",
-  },
-  "& .cm-scroller": {
-    flexGrow: 1,
-  },
-});
+class Overlay {
+  private _canvas: HTMLCanvasElement;
+  private _view: EditorView;
 
-const MINIMAP_WIDTH = 300;
+  public constructor(view: EditorView) {
+    this._view = view;
+
+    this._canvas = document.createElement("canvas");
+    this._canvas.classList.add("overlay");
+
+    this.setTop();
+    this.setHeight();
+
+    this._view.dom.appendChild(this._canvas);
+  }
+
+  public setHeight() {
+    const height = this._view.dom.clientHeight / SCALE / 2 / 1.4;
+    this._canvas.style.height = height + "px";
+  }
+
+  public setTop() {
+    const top = this._view.scrollDOM.scrollTop / SCALE / 2 / 1.4;
+    this._canvas.style.top = top + "px";
+  }
+
+  public destroy() {
+    this._canvas.remove();
+  }
+}
+
 const minimapView = ViewPlugin.fromClass(
   class {
     minimap: Minimap;
+    overlay: Overlay;
+
+    private context: {
+      lineHeight: number;
+      scale: number;
+    };
 
     constructor(readonly view: EditorView) {
       this.minimap = new Minimap(view);
-
-      // overlayCanvas.style.opacity = "0.1";
-      // overlayCanvas.style.backgroundColor = "black";
-      // overlayCanvas.style.position = "absolute";
-      // overlayCanvas.style.width = MINIMAP_WIDTH + "px";
-      // overlayCanvas.style.height = getOverlayHeight(view);
-      // overlayCanvas.style.top = getOverlayTop(view);
+      this.overlay = new Overlay(view);
     }
 
     update(update: ViewUpdate) {
       const lines = this.minimap.buildLines(update.state);
       this.minimap.render(lines);
+      this.overlay.setHeight();
     }
 
     destroy() {
       this.minimap.destroy();
+      this.overlay.destroy();
     }
+  },
+  {
+    eventHandlers: {
+      scroll() {
+        this.overlay.setTop();
+      },
+    },
   }
 );
 
