@@ -11,6 +11,8 @@ import { minimap } from "../src/index.new";
   /* Apply initial configuration from controls */
   const doc = getDoc(window.location.hash);
   const showMinimap = getShowMinimap(window.location.hash);
+  const showOverlay = getShowOverlay(window.location.hash);
+  const displayText = getDisplayText(window.location.hash);
   const compartment = new Compartment();
 
   const view = new EditorView({
@@ -30,7 +32,9 @@ import { minimap } from "../src/index.new";
         }),
 
         /* Minimap extension */
-        compartment.of(showMinimap ? minimap() : []),
+        compartment.of(
+          showMinimap ? minimap({ showOverlay, displayText }) : []
+        ),
       ],
     }),
     parent: document.getElementById("editor") as HTMLElement,
@@ -47,14 +51,15 @@ import { minimap } from "../src/index.new";
       });
     }
 
-    const prevMinimap = getShowMinimap(e.oldURL);
-    const newMinimap = getShowMinimap(e.newURL);
+    const showMinimap = getShowMinimap(e.newURL);
+    const showOverlay = getShowOverlay(window.location.hash);
+    const displayText = getDisplayText(window.location.hash);
 
-    if (prevMinimap !== newMinimap) {
-      view.dispatch({
-        effects: compartment.reconfigure(newMinimap ? minimap() : []),
-      });
-    }
+    view.dispatch({
+      effects: compartment.reconfigure(
+        showMinimap ? minimap({ showOverlay, displayText }) : []
+      ),
+    });
   });
 })();
 
@@ -70,6 +75,22 @@ function getDoc(url: string): string {
 }
 function getShowMinimap(url: string): boolean {
   return getHashValue("minimap", url) === "show";
+}
+function getShowOverlay(url: string): "always" | "mouse-over" | undefined {
+  const value = getHashValue("overlay", url);
+  if (value === "always" || value === "mouse-over") {
+    return value;
+  }
+
+  return undefined;
+}
+function getDisplayText(url: string): "blocks" | "characters" | undefined {
+  const value = getHashValue("text", url);
+  if (value === "blocks" || value === "characters") {
+    return value;
+  }
+
+  return undefined;
 }
 function getHashValue(key: string, url: string): string | undefined {
   const hash = url.split("#").slice(1);

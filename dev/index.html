@@ -11,6 +11,10 @@
       overflow-y: auto;
       border: 1px solid gray;
     }
+
+    #controls>div {
+      margin-top: 8px;
+    }
   </style>
 </head>
 
@@ -21,7 +25,7 @@
   <script type="module" src="./index.ts"></script>
 
   <!-- Controls -->
-  <div style="margin-top: 8px">
+  <div id="controls" style="margin-top: 8px">
     <script>
       function replaceHash(k, v) {
         window.location.hash = window.location.hash.split("#")
@@ -30,10 +34,22 @@
           .join("#");
       }
     </script>
-    <button onclick="replaceHash('length', 'short')">Short Text</button>
-    <button onclick="replaceHash('length', 'long')">Long Text</button>
-    <button onclick="replaceHash('minimap', 'show')">Show Minimap</button>
-    <button onclick="replaceHash('minimap', 'hide')">Hide Minimap</button>
+    <div>
+      <button onclick="replaceHash('length', 'short')">Short Text</button>
+      <button onclick="replaceHash('length', 'long')">Long Text</button>
+    </div>
+    <div>
+      <button onclick="replaceHash('minimap', 'show')">Show Minimap</button>
+      <button onclick="replaceHash('minimap', 'hide')">Hide Minimap</button>
+    </div>
+    <div>
+      <button onclick="replaceHash('overlay', 'always')">Overlay - Always</button>
+      <button onclick="replaceHash('overlay', 'mouse-over')">Overlay - Mouse Over</button>
+    </div>
+    <div>
+      <button onclick="replaceHash('text', 'characters')">Text - Characters</button>
+      <button onclick="replaceHash('text', 'blocks')">Text - Blocks</button>
+    </div>
   </div>
 
 </body>

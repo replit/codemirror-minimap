@@ -19,7 +19,7 @@
     "dev": "vite ./dev",
     "build": "cm-buildhelper ./src/index.new.ts"
   },
-  "peerDependencies": {
+  "dependencies": {
     "@codemirror/language": "^6.0.0",
     "@codemirror/state": "^6.0.0",
     "@codemirror/view": "^6.0.0",
@@ -39,8 +39,5 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/replit/codemirror-minimap.git"
-  },
-  "dependencies": {
-    "@lezer/highlight": "^1.1.4"
   }
 }

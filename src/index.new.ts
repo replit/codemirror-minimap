@@ -4,6 +4,8 @@ import {
   Text,
   SelectionRange,
   Extension,
+  Facet,
+  combineConfig,
 } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 
@@ -29,14 +31,29 @@ const minimapTheme = EditorView.theme({
   "& .cm-scroller": {
     flexGrow: 1,
   },
+  "& .overlay-show-mouse-over": {
+    "& .overlay-container": {
+      opacity: 0,
+      visibility: "hidden",
+      transition: "visibility 0s linear 300ms, opacity 300ms",
+    },
+  },
+  "& .overlay-show-mouse-over:hover": {
+    "& .overlay-container": {
+      opacity: 1,
+      visibility: "visible",
+      transition: "visibility 0s linear 0ms, opacity 300ms",
+    },
+  },
   ".overlay": {
     backgroundColor: "black",
-    opacity: "0.2",
+    opacity: "0.3",
     position: "absolute",
     right: 0,
     top: 0,
+    width: "100%",
     "&:hover": {
-      opacity: "0.15",
+      opacity: "0.25",
     },
   },
 });
@@ -45,12 +62,14 @@ const CANVAS_MAX_WIDTH = 120;
 const SCALE = 3;
 
 class Minimap {
-  private _container: HTMLDivElement;
+  /*private*/ public _container: HTMLDivElement;
   private _canvas: HTMLCanvasElement;
   private _view: EditorView;
 
   private _fontInfoMap: Map<string, FontInfo> = new Map();
   private _selectionInfo: SelectionInfo | undefined;
+
+  private _displayText: Required<Config>["displayText"];
 
   public constructor(view: EditorView) {
     this._view = view;
@@ -69,6 +88,21 @@ class Minimap {
 
     this._container.appendChild(this._canvas);
     this._view.dom.appendChild(this._container);
+
+    const config = view.state.facet(minimapConfig);
+    this.setShowOverlay(config.showOverlay);
+    this.setDisplayText(config.displayText);
+  }
+
+  public setShowOverlay(showOverlay: Required<Config>["showOverlay"]) {
+    if (showOverlay === "mouse-over") {
+      this._container.classList.add("overlay-show-mouse-over");
+    } else {
+      this._container.classList.remove("overlay-show-mouse-over");
+    }
+  }
+  public setDisplayText(displayText: Required<Config>["displayText"]) {
+    this._displayText = displayText;
   }
 
   public buildLines(state: EditorState): Array<LineData> {
@@ -291,12 +325,35 @@ class Minimap {
 
         context.fillStyle = info.color;
         context.font = info.font;
-
         lineHeight = Math.max(lineHeight, info.fontSize);
 
-        context.fillText(line.text[j].text, x, heightOffset + lineHeight);
+        if (this._displayText === "characters") {
+          context.fillText(line.text[j].text, x, heightOffset + lineHeight);
+          x += context.measureText(line.text[j].text).width;
+        }
 
-        x += context.measureText(line.text[j].text).width;
+        if (this._displayText === "blocks") {
+          const characters = line.text[j].text;
+
+          const nonWhitespaceRegex = /\S+/g;
+          // const whitespaceRanges: [number, number][] = [];
+          let match: RegExpExecArray | null;
+          while ((match = nonWhitespaceRegex.exec(characters)) !== null) {
+            const start = match.index;
+            const end = nonWhitespaceRegex.lastIndex;
+
+            context.beginPath();
+            context.rect(
+              x + start * lineHeight,
+              heightOffset + lineHeight,
+              (end - start) * lineHeight,
+              lineHeight - 2 /* 2px buffer between lines */
+            );
+            context.fill();
+          }
+
+          x += characters.length * lineHeight;
+        }
       }
 
       for (let j = 0; j < line.selections.length; j++) {
@@ -408,16 +465,24 @@ class Overlay {
   private _canvas: HTMLCanvasElement;
   private _view: EditorView;
 
-  public constructor(view: EditorView) {
+  public constructor(
+    view: EditorView,
+    /* TODO: Move Overlay inside minimap instead */ minimap: Minimap
+  ) {
     this._view = view;
 
     this._canvas = document.createElement("canvas");
     this._canvas.classList.add("overlay");
 
+    const container = document.createElement("div");
+    container.classList.add("overlay-container");
+
     this.setTop();
     this.setHeight();
 
-    this._view.dom.appendChild(this._canvas);
+    // this._view.dom.appendChild(this._canvas);
+    container.appendChild(this._canvas);
+    minimap._container.appendChild(container);
   }
 
   public setHeight() {
@@ -439,18 +504,22 @@ const minimapView = ViewPlugin.fromClass(
   class {
     minimap: Minimap;
     overlay: Overlay;
-
-    private context: {
-      lineHeight: number;
-      scale: number;
-    };
+    config: Config;
 
     constructor(readonly view: EditorView) {
       this.minimap = new Minimap(view);
-      this.overlay = new Overlay(view);
+      this.overlay = new Overlay(view, this.minimap);
+      this.config = view.state.facet(minimapConfig);
     }
 
     update(update: ViewUpdate) {
+      const config = update.state.facet(minimapConfig);
+      const previousConfig = update.startState.facet(minimapConfig);
+      if (previousConfig !== config) {
+        this.minimap.setDisplayText(config.displayText);
+        this.minimap.setShowOverlay(config.showOverlay);
+      }
+
       const lines = this.minimap.buildLines(update.state);
       this.minimap.render(lines);
       this.overlay.setHeight();
@@ -470,6 +539,26 @@ const minimapView = ViewPlugin.fromClass(
   }
 );
 
-export function minimap(/* config: {...} */): Extension {
-  return [minimapTheme, minimapView];
+const minimapConfig = Facet.define<Config, Required<Config>>({
+  combine: (configs) =>
+    combineConfig(configs, {
+      displayText: "characters",
+      showOverlay: "always",
+    }),
+});
+
+type Config = {
+  /**
+   * Determines how to render text. Defaults to `characters`.
+   */
+  displayText?: "blocks" | "characters";
+  /**
+   * The overlay shows the portion of the file currently in the viewport.
+   * Defaults to `always`.
+   */
+  showOverlay?: "always" | "mouse-over";
+};
+
+export function minimap(config: Config = {}): Extension {
+  return [minimapTheme, minimapConfig.of(config), minimapView];
 }
