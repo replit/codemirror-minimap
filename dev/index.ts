@@ -2,6 +2,9 @@ import { basicSetup } from "codemirror";
 import { javascript } from "@codemirror/lang-javascript";
 import { EditorState, Compartment } from "@codemirror/state";
 import { EditorView, drawSelection } from "@codemirror/view";
+import { linter, Diagnostic } from "@codemirror/lint";
+import { syntaxTree } from "@codemirror/language";
+import { oneDark } from "@codemirror/theme-one-dark";
 
 import snippets from "./snippets";
 
@@ -13,7 +16,33 @@ import { minimap } from "../src/index.new";
   const showMinimap = getShowMinimap(window.location.hash);
   const showOverlay = getShowOverlay(window.location.hash);
   const displayText = getDisplayText(window.location.hash);
-  const compartment = new Compartment();
+  const mode = getMode(window.location.hash);
+  const themeCompartment = new Compartment();
+  const extensionCompartment = new Compartment();
+
+  const testLinter = linter((view) => {
+    let diagnostics: Diagnostic[] = [];
+    syntaxTree(view.state)
+      .cursor()
+      .iterate((node) => {
+        if (node.name == "RegExp")
+          diagnostics.push({
+            from: node.from,
+            to: node.to,
+            severity: "warning",
+            message: "Regular expressions are FORBIDDEN",
+            actions: [
+              {
+                name: "Remove",
+                apply(view, from, to) {
+                  view.dispatch({ changes: { from, to } });
+                },
+              },
+            ],
+          });
+      });
+    return diagnostics;
+  });
 
   const view = new EditorView({
     state: EditorState.create({
@@ -30,9 +59,11 @@ import { minimap } from "../src/index.new";
           "data-gramm_editor": "false",
           "data-enabled-grammarly": "false",
         }),
+        testLinter,
+        themeCompartment.of(mode === "dark" ? oneDark : []),
 
         /* Minimap extension */
-        compartment.of(
+        extensionCompartment.of(
           showMinimap ? minimap({ showOverlay, displayText }) : []
         ),
       ],
@@ -54,11 +85,15 @@ import { minimap } from "../src/index.new";
     const showMinimap = getShowMinimap(e.newURL);
     const showOverlay = getShowOverlay(window.location.hash);
     const displayText = getDisplayText(window.location.hash);
+    const mode = getMode(window.location.hash);
 
     view.dispatch({
-      effects: compartment.reconfigure(
-        showMinimap ? minimap({ showOverlay, displayText }) : []
-      ),
+      effects: [
+        extensionCompartment.reconfigure(
+          showMinimap ? minimap({ showOverlay, displayText }) : []
+        ),
+        themeCompartment.reconfigure(mode === "dark" ? oneDark : []),
+      ],
     });
   });
 })();
@@ -91,6 +126,9 @@ function getDisplayText(url: string): "blocks" | "characters" | undefined {
   }
 
   return undefined;
+}
+function getMode(url: string): "dark" | "light" {
+  return getHashValue("mode", url) === "dark" ? "dark" : "light";
 }
 function getHashValue(key: string, url: string): string | undefined {
   const hash = url.split("#").slice(1);

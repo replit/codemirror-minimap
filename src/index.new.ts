@@ -8,7 +8,7 @@ import {
   combineConfig,
 } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
-
+import { forEachDiagnostic } from "@codemirror/lint";
 import { highlightTree, getStyleTags, Highlighter } from "@lezer/highlight";
 
 type LineData = { text: Array<LineText>; selections: Array<LineSelection> };
@@ -46,14 +46,18 @@ const minimapTheme = EditorView.theme({
     },
   },
   ".overlay": {
-    backgroundColor: "black",
-    opacity: "0.3",
+    background: "rgb(121, 121, 121)",
+    opacity: "0.2",
     position: "absolute",
     right: 0,
     top: 0,
     width: "100%",
+    transition: "top 0s ease-in 0ms",
     "&:hover": {
-      opacity: "0.25",
+      opacity: "0.3",
+    },
+    "&.overlay-active": {
+      opacity: "0.4",
     },
   },
 });
@@ -66,6 +70,7 @@ class Minimap {
   private _canvas: HTMLCanvasElement;
   private _view: EditorView;
 
+  private _themeClasses: string;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
   private _selectionInfo: SelectionInfo | undefined;
 
@@ -74,14 +79,19 @@ class Minimap {
   public constructor(view: EditorView) {
     this._view = view;
 
-    console.log(this._view);
-
     this._canvas = document.createElement("canvas");
     this._container = document.createElement("div");
 
     this._canvas.style.maxWidth = CANVAS_MAX_WIDTH + "px";
 
-    this._canvas.addEventListener("click", (e) => this.handleClick(e));
+    this._canvas.addEventListener("click", (e) => {
+      const mappedPosition = e.clientY * SCALE * 2 * 1.4;
+      const halfEditorHeight = this._view.scrollDOM.clientHeight / 2;
+      this._view.scrollDOM.scrollTop = mappedPosition - halfEditorHeight;
+
+      e.preventDefault();
+      e.stopPropagation();
+    });
 
     this._container.style.position = "relative";
     this._container.style.overflow = "hidden";
@@ -92,6 +102,7 @@ class Minimap {
     const config = view.state.facet(minimapConfig);
     this.setShowOverlay(config.showOverlay);
     this.setDisplayText(config.displayText);
+    this._themeClasses = view.dom.classList.value;
   }
 
   public setShowOverlay(showOverlay: Required<Config>["showOverlay"]) {
@@ -121,6 +132,12 @@ class Minimap {
 
     const lines: Array<LineData> = [];
     let selectionIndex = 0;
+
+    let diagnosticRanges: Array<{ from: number; to: number }> = [];
+    let diagnosticIndex = 0;
+    forEachDiagnostic(state, (diagnostic, diagnosticFrom, diagnosticTo) => {
+      diagnosticRanges.push({ from: diagnosticFrom, to: diagnosticTo });
+    });
 
     for (let i = 1; i <= doc.lines; i++) {
       let { from: lineFrom, to: lineTo, text: lineText } = doc.line(i);
@@ -187,6 +204,22 @@ class Minimap {
         selectionIndex += 1;
       } while (selectionIndex < state.selection.ranges.length);
       /* END SELECTIONS */
+
+      /* START DIAGNOSTICS */
+      // while (diagnosticIndex < diagnosticRanges.length) {
+      //   const current = diagnosticRanges[diagnosticIndex];
+      //   const { from: diagnosticFrom, to: diagnosticTo } = current;
+
+      //   if (
+      //     (diagnosticFrom >= lineFrom && diagnosticFrom < lineTo) ||
+      //     (diagnosticTo > lineFrom && diagnosticTo <= lineTo)
+      //   ) {
+      //   }
+
+      //   // if (diagnosticRanges[diagnosticIndex].from >= lineFrom &&)
+      // }
+
+      /* END DIAGNOSTICS */
 
       if (lineText === "") {
         lines.push({
@@ -279,6 +312,12 @@ class Minimap {
   }
 
   public render(lines: Array<LineData>) {
+    console.log("Rerender");
+    if (this._themeClasses !== this._view.dom.classList.value) {
+      this.clearFontInfo();
+      this._themeClasses = this._view.dom.classList.value;
+    }
+
     const containerX = this._view.scrollDOM.clientWidth;
     const contentX = this._view.scrollDOM.scrollWidth;
 
@@ -328,12 +367,18 @@ class Minimap {
         lineHeight = Math.max(lineHeight, info.fontSize);
 
         if (this._displayText === "characters") {
+          // TODO: `fillText` takes up the majority of profiling time in `render`
+          // Try speeding it up with `drawImage`
+          // https://stackoverflow.com/questions/8237030/html5-canvas-faster-filltext-vs-drawimage/8237081
           context.fillText(line.text[j].text, x, heightOffset + lineHeight);
           x += context.measureText(line.text[j].text).width;
         }
 
         if (this._displayText === "blocks") {
           const characters = line.text[j].text;
+
+          /* Each block's width is 3/4 of its height */
+          const widthMultiplier = 0.75;
 
           const nonWhitespaceRegex = /\S+/g;
           // const whitespaceRanges: [number, number][] = [];
@@ -342,17 +387,18 @@ class Minimap {
             const start = match.index;
             const end = nonWhitespaceRegex.lastIndex;
 
+            context.globalAlpha = 0.65; // Make the blocks a bit faded
             context.beginPath();
             context.rect(
               x + start * lineHeight,
               heightOffset + lineHeight,
-              (end - start) * lineHeight,
+              (end - start) * lineHeight * widthMultiplier,
               lineHeight - 2 /* 2px buffer between lines */
             );
             context.fill();
           }
 
-          x += characters.length * lineHeight;
+          x += characters.length * lineHeight * widthMultiplier;
         }
       }
 
@@ -416,6 +462,14 @@ class Minimap {
     return result;
   }
 
+  /**
+   * Clears the font info storage. Useful when themes change and we need to
+   * recompute font info for new theme classes
+   */
+  private clearFontInfo(): void {
+    this._fontInfoMap.clear();
+  }
+
   private getSelectionInfo(): SelectionInfo {
     let result: SelectionInfo;
     if (this._selectionInfo) {
@@ -441,29 +495,13 @@ class Minimap {
 
     return result;
   }
-
-  private handleClick(event: MouseEvent) {
-    console.log("Click event", event.clientX, event.clientY);
-
-    // console.log("Line at ", Number(event.clientY / (12 / SCALE / 2)));
-
-    const position = this._view.posAtCoords({
-      x: event.clientX / (12 / SCALE / 2),
-      y: event.clientY / (12 / SCALE / 2),
-    });
-
-    // this._view.dispatch({
-    //   selection
-    //   scrollIntoView: true,
-    // })
-    event.preventDefault();
-    event.stopPropagation();
-  }
 }
 
 class Overlay {
   private _canvas: HTMLCanvasElement;
   private _view: EditorView;
+  private _isDragging: boolean = false;
+  private _dragStartY: number | undefined;
 
   public constructor(
     view: EditorView,
@@ -477,10 +515,73 @@ class Overlay {
     const container = document.createElement("div");
     container.classList.add("overlay-container");
 
+    container.addEventListener("mousedown", (e) => {
+      if (e.button === 2) {
+        // Right click
+        return;
+      }
+      this._canvas.classList.add("overlay-active");
+      this._dragStartY = e.clientY;
+      this._isDragging = true;
+    });
+    window.addEventListener("mouseup", () => {
+      if (this._isDragging) {
+        this._canvas.classList.remove("overlay-active");
+        this._isDragging = false;
+        this._dragStartY = undefined;
+      }
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (!this._isDragging) {
+        return;
+      }
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (!this._dragStartY) {
+        this._dragStartY = e.clientY;
+        return;
+      }
+
+      const delta = e.clientY - this._dragStartY;
+      this._dragStartY = e.clientY;
+      const ratio = SCALE * 2 * 1.4;
+
+      const canvasHeight = this._canvas.getBoundingClientRect().height;
+      const canvasAbsTop = this._canvas.getBoundingClientRect().y;
+      const canvasAbsBot = canvasAbsTop + canvasHeight;
+      const canvasRelTop = parseInt(this._canvas.style.top);
+
+      const atTop = view.scrollDOM.scrollTop === 0;
+      const atBottom =
+        view.scrollDOM.scrollTop >=
+        view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight;
+
+      const movingUp = delta < 0;
+      const movingDown = delta > 0;
+
+      if ((atTop && movingUp) || (atTop && e.clientY < canvasAbsTop)) {
+        return;
+      }
+      if ((atBottom && movingDown) || (atBottom && e.clientY > canvasAbsBot)) {
+        return;
+      }
+
+      // Set view scroll directly
+      view.scrollDOM.scrollTop = (canvasRelTop + delta) * ratio;
+
+      // view.scrollDOM truncates if out of bounds. We need to mimic that behavior here with min/max guard
+      this._canvas.style.top =
+        Math.min(
+          Math.max(0, canvasRelTop + delta),
+          (view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight) / ratio
+        ) + "px";
+    });
+
     this.setTop();
     this.setHeight();
 
-    // this._view.dom.appendChild(this._canvas);
     container.appendChild(this._canvas);
     minimap._container.appendChild(container);
   }
@@ -491,8 +592,10 @@ class Overlay {
   }
 
   public setTop() {
-    const top = this._view.scrollDOM.scrollTop / SCALE / 2 / 1.4;
-    this._canvas.style.top = top + "px";
+    if (!this._isDragging) {
+      const top = this._view.scrollDOM.scrollTop / SCALE / 2 / 1.4;
+      this._canvas.style.top = top + "px";
+    }
   }
 
   public destroy() {
@@ -515,13 +618,23 @@ const minimapView = ViewPlugin.fromClass(
     update(update: ViewUpdate) {
       const config = update.state.facet(minimapConfig);
       const previousConfig = update.startState.facet(minimapConfig);
-      if (previousConfig !== config) {
+      const configChanged = previousConfig !== config;
+      if (configChanged) {
         this.minimap.setDisplayText(config.displayText);
         this.minimap.setShowOverlay(config.showOverlay);
       }
 
-      const lines = this.minimap.buildLines(update.state);
-      this.minimap.render(lines);
+      if (
+        configChanged ||
+        update.heightChanged ||
+        update.docChanged ||
+        update.selectionSet ||
+        update.geometryChanged
+      ) {
+        const lines = this.minimap.buildLines(update.state);
+        this.minimap.render(lines);
+      }
+
       this.overlay.setHeight();
     }
 
@@ -533,7 +646,7 @@ const minimapView = ViewPlugin.fromClass(
   {
     eventHandlers: {
       scroll() {
-        this.overlay.setTop();
+        requestAnimationFrame(() => this.overlay.setTop());
       },
     },
   }

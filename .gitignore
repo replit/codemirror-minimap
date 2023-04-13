@@ -1,10 +1,10 @@
+dist/
+node_modules/
 
 .DS_Store
-node_modules
-dist/
+.npm_cache
+.vscode
+.yarn-cache
 
 npm-debug.log
-.npm_cache
-.yarn-cache
 yarn-error.log
-.vscode

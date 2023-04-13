@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <title>Codemirror Minimap</title>
+  <title>Codemirror Minimap Demo</title>
   <link rel="shortcut icon" href="#">
   <style>
     #editor {
@@ -34,6 +34,10 @@
           .join("#");
       }
     </script>
+    <div>
+      <button onclick="replaceHash('mode', 'light')">Light Mode</button>
+      <button onclick="replaceHash('mode', 'dark')">Dark Mode</button>
+    </div>
     <div>
       <button onclick="replaceHash('length', 'short')">Short Text</button>
       <button onclick="replaceHash('length', 'long')">Long Text</button>

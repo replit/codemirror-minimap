@@ -7,6 +7,10 @@ const short = `
     }
 /* Ignored */  } /* Hello world */
 
+  function isNumber(string) {
+    return /^\d+(\.\d*)?$/.test(string)
+  }
+
   const NUM_TRIALS = 100;
   const MAX_NUMBER = 100;
 `;
@@ -23,8 +27,16 @@ const long = `
   const NUM_TRIALS = 100;
   const MAX_NUMBER = 100;
 
+  function isNumber(string) {
+    return /^\d+(\.\d*)?$/.test(string)
+  }
+
   function getRandomNumber(min, max) {
     return Math.floor(Math.random() * (max - min + 1) + min);
+  }
+
+  function isNumber2(string) {
+    return /^\d+(\.\d*)?$/.test(string)
   }
   const min = 1; // minimum value for random number
   const max = 100; // maximum value for random number
@@ -41,6 +53,10 @@ const long = `
   console.log('The sum of factorials is: ', sumOfFactorials);
   const NUM_TRIALS = 100;
   const MAX_NUMBER = 100;
+
+  function isNumber3(string) {
+    return /^\d+(\.\d*)?$/.test(string)
+  }
 
 
 
