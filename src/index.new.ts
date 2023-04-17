@@ -6,6 +6,7 @@ import {
   Extension,
   Facet,
   combineConfig,
+  StateEffect,
 } from "@codemirror/state";
 import {
   EditorView,
@@ -57,11 +58,11 @@ const minimapTheme = EditorView.theme({
 const CANVAS_MAX_WIDTH = 120;
 const SCALE = 3;
 
-export class Minimap {
+export class Minimap implements PluginValue {
   public _gutter: HTMLDivElement;
   /*private*/ public _container: HTMLDivElement;
-  private _canvas: HTMLCanvasElement;
-  private _view: EditorView;
+  /*private*/ public _canvas: HTMLCanvasElement;
+  /*private*/ public _view: EditorView;
 
   private _themeClasses: string;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
@@ -155,8 +156,46 @@ export class Minimap {
     const lines: Array<LineData> = [];
     let selectionIndex = 0;
 
-    const diagnostics = updateDiagnostics(state);
-    console.log(diagnostics);
+    const lineRanges: Array<{
+      from: number;
+      to: number;
+      hidden: Array<{ from: number; to: number }>; // It's possible to have more than one hidden range within a line...
+    }> = [];
+    for (let i = 1; i <= doc.lines; i++) {
+      let { from: lineFrom, to: lineTo, text: lineText } = doc.line(i);
+
+      // Iterate through folded ranges until we're at or past the current line
+      while (foldedRangeCursor.value && foldedRangeCursor.to < lineFrom) {
+        foldedRangeCursor.next();
+      }
+
+      const { from: foldFrom, to: foldTo } = foldedRangeCursor;
+      const lineStartInFold = lineFrom >= foldFrom && lineFrom < foldTo;
+      const lineEndInFold = lineTo > foldFrom && lineTo <= foldTo;
+
+      // If the line is fully within the fold we ignore it entirely
+      if (lineStartInFold && lineEndInFold) {
+        continue;
+      }
+
+      // If we have a fold ending part way through the line, the rest of the line will
+      // be appended to the previous line
+      if (lineStartInFold && !lineEndInFold) {
+        let last = lineRanges.pop();
+        if (!last) {
+          lineRanges.push({ from: lineFrom, to: lineTo });
+          continue;
+        }
+        last.to = lineTo;
+        lineRanges.push(last);
+        continue;
+      }
+
+      // Otherwise, append line data as normal
+      lineRanges.push({ from: lineFrom, to: lineTo });
+    }
+
+    const diagnostics = updateDiagnostics(state, lineRanges);
 
     for (let i = 1; i <= doc.lines; i++) {
       let { from: lineFrom, to: lineTo, text: lineText } = doc.line(i);
@@ -330,16 +369,22 @@ export class Minimap {
       this._themeClasses = this._view.dom.classList.value;
     }
 
-    const containerX = this._view.scrollDOM.clientWidth;
-    const contentX = this._view.scrollDOM.scrollWidth;
+    const containerX = this._view.contentDOM.clientWidth;
+    updateBoxShadow(this._view);
+    // const contentX = this._view.contentDOM.scrollWidth;
+    // const scrollLeft = this._view.contentDOM.scrollLeft;
 
-    // console.log(containerX, contentX);
-
-    if (containerX < contentX) {
-      this._container.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
-    } else {
-      this._container.style.boxShadow = "inherit";
-    }
+    // // if (containerX + scrollLeft < contentX) {
+    // //   this._canvas.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
+    // //   console.log(
+    // //     containerX + this._view.contentDOM.scrollLeft,
+    // //     contentX,
+    // //     this._view.contentDOM.scrollLeft
+    // //   );
+    // //   // console.log(this._view.contentDOM.scrollLeft);
+    // // } else {
+    // //   this._canvas.style.boxShadow = "inherit";
+    // // }
 
     if (containerX <= SCALE * CANVAS_MAX_WIDTH) {
       const ratio = containerX / (SCALE * CANVAS_MAX_WIDTH);
@@ -406,7 +451,7 @@ export class Minimap {
             context.globalAlpha = 0.65; // Make the blocks a bit faded
             context.beginPath();
             context.rect(
-              x + start * lineHeight,
+              x + start * lineHeight * widthMultiplier,
               heightOffset,
               (end - start) * lineHeight * widthMultiplier,
               lineHeight - 2 /* 2px buffer between lines */
@@ -532,7 +577,7 @@ export class Minimap {
   }
 }
 
-const minimapView = ViewPlugin.fromClass(
+export const minimapView = ViewPlugin.fromClass(
   class {
     minimap: Minimap;
     config: Config;
@@ -540,7 +585,6 @@ const minimapView = ViewPlugin.fromClass(
     constructor(readonly view: EditorView) {
       this.minimap = new Minimap(view);
       this.config = view.state.facet(minimapConfig);
-      minimapElement.of(this.minimap._container);
     }
 
     update(update: ViewUpdate) {
@@ -551,18 +595,17 @@ const minimapView = ViewPlugin.fromClass(
         this.minimap.setDisplayText(config.displayText);
       }
 
-      let diagnostics;
+      let updatedDiagnostics = false;
       for (const tr of update.transactions) {
         for (const ef of tr.effects) {
           if (ef.is(setDiagnosticsEffect)) {
-            // We shouldn't have to recompute this in render, we should pass it in to a "diagnostics decorator"
-            diagnostics = updateDiagnostics(update.state);
+            updatedDiagnostics = true;
           }
         }
       }
 
       if (
-        diagnostics ||
+        updatedDiagnostics ||
         configChanged ||
         update.heightChanged ||
         update.docChanged ||
@@ -578,18 +621,60 @@ const minimapView = ViewPlugin.fromClass(
       this.minimap.destroy();
     }
   },
-  { provide: () => [overlay()] }
+  {
+    eventHandlers: {
+      scroll: (event, view) => {
+        updateBoxShadow(view);
+      },
+    },
+    provide: () => [overlay()],
+  }
 );
 
-function updateDiagnostics(state: EditorState) {
+function updateBoxShadow(view: EditorView) {
+  const minimap = view.plugin(minimapView)?.minimap;
+  if (!minimap) {
+    return;
+  }
+
+  // Hacking in box shadow stuff, this needs to re-render when other things do not...
+  // Also, had to make a couple things public here, so likely not the right place.
+  // Could be a method w/i minimap
+  const containerX = view.contentDOM.clientWidth;
+  const contentX = view.contentDOM.scrollWidth;
+  const scrollLeft = view.contentDOM.scrollLeft;
+  if (containerX + scrollLeft < contentX) {
+    minimap._canvas.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
+  } else {
+    minimap._canvas.style.boxShadow = "inherit";
+  }
+  // End box shadow stuff
+}
+
+// TODO: we should pull line data including folded ranges out into a facet
+// Will make it easier as we depend on it in quite a few places
+// From, To, Text, ?Original line#? The line data should have hidden range information
+// that would allow us to exclude text easily, to exclude diagnostics easily, etc.
+function updateDiagnostics(
+  state: EditorState,
+  lineRanges: Array<{ from: number; to: number }>
+) {
   const linesWithDiagnostics = new Set<number>();
   const severityMap = new Map<number, Diagnostic["severity"]>();
   forEachDiagnostic(state, (diagnostic, diagnosticFrom, diagnosticTo) => {
-    const fromLine = state.doc.lineAt(diagnosticFrom);
-    const toLine = state.doc.lineAt(diagnosticTo);
+    // TODO: This is the naive way. there's probably an algorithm for more efficiently
+    // finding these indexes. rn this is like o n^2
+    const fromLine =
+      lineRanges.findIndex(
+        (r) => r.from <= diagnosticFrom && r.to >= diagnosticFrom
+      ) + 1;
+    const toLine =
+      lineRanges.findIndex(
+        (r) => r.from <= diagnosticTo && r.to >= diagnosticTo
+      ) + 1;
     let severity = diagnostic.severity;
 
-    for (let i = fromLine.number; i <= toLine.number; i++) {
+    for (let i = fromLine; i <= toLine; i++) {
       linesWithDiagnostics.add(i);
 
       const existing = severityMap.get(i);
@@ -611,7 +696,9 @@ function updateDiagnostics(state: EditorState) {
 
 // TODO: Move this out. This shouldn't be here
 export const minimapElement = Facet.define<HTMLDivElement, HTMLDivElement>({
-  combine: (el) => el[0],
+  combine: (el) => {
+    return el[0];
+  },
 });
 
 export function minimap(config: Config = {}): Extension {

@@ -1,7 +1,8 @@
 import { Extension, Facet } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Config, config } from "./config";
-import { minimapElement } from "./index.new";
+import { minimapView } from "./index.new";
+// import { minimapElement } from "./index.new";
 
 /* TODO: Some kind of rendering config */
 const SCALE = 3;
@@ -46,6 +47,7 @@ const overlayTheme = EditorView.theme({
 
 const overlayView = ViewPlugin.fromClass(
   class {
+    private container: HTMLDivElement;
     private dom: HTMLDivElement;
     private _isDragging: boolean = false;
     private _dragStartY: number | undefined;
@@ -54,21 +56,26 @@ const overlayView = ViewPlugin.fromClass(
       this.dom = document.createElement("div");
       this.dom.classList.add("current-view");
 
-      const container = document.createElement("div");
-      container.classList.add("container");
-      container.appendChild(this.dom);
+      this.container = document.createElement("div");
+      this.container.classList.add("container");
+      this.container.appendChild(this.dom);
 
       this.computeHeight();
       this.computeTop();
 
       // Attach event listeners for overlay
-      this.dom.addEventListener("mousedown", this.onMouseDown);
-      window.addEventListener("mouseup", this.onMouseUp);
-      window.addEventListener("mousemove", this.onMouseMove);
+      this.dom.addEventListener("mousedown", this.onMouseDown.bind(this));
+      window.addEventListener("mouseup", this.onMouseUp.bind(this));
+      window.addEventListener("mousemove", this.onMouseMove.bind(this));
 
       // Attach the dom elements to the minimap
-      this.view.state.facet(minimapElement)?.appendChild(container);
-      console.log(this.view.state.facet(minimapElement));
+      const minimap = view.plugin(minimapView)?.minimap;
+      if (!minimap) {
+        return;
+      }
+      minimap._container.appendChild(this.container);
+      // this.view.state.facet(minimapElement)?.appendChild(container);
+      // console.log(this.view.state.facet(minimapElement));
     }
 
     update(update: ViewUpdate) {
@@ -99,7 +106,13 @@ const overlayView = ViewPlugin.fromClass(
       // TODO: Should instead we just create like a transparent overlay
       // within this class, then we don't need to add stuff to the minimap class/outside of
       // this file
-      const el = this.view.state.facet(minimapElement);
+      const minimap = this.view.plugin(minimapView)?.minimap;
+      if (!minimap) {
+        return;
+      }
+      const el = minimap._container;
+      // minimap._container.appendChild(container);
+      // const el = this.view.state.facet(minimapElement);
       if (showOverlay === "mouse-over") {
         el.classList.add("config-only-mouse-over");
       } else {
@@ -116,7 +129,9 @@ const overlayView = ViewPlugin.fromClass(
       // Start dragging on mousedown
       this._dragStartY = event.clientY;
       this._isDragging = true;
-      this.dom.classList.add("active");
+      console.log(this.dom);
+      this;
+      this.container.classList.add("active");
     }
 
     private onMouseUp(_event: MouseEvent) {
@@ -124,7 +139,7 @@ const overlayView = ViewPlugin.fromClass(
       if (this._isDragging) {
         this._dragStartY = undefined;
         this._isDragging = false;
-        this.dom.classList.remove("active");
+        this.container.classList.remove("active");
       }
     }
 
