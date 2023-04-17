@@ -22,32 +22,29 @@ import {
 import { highlightTree, getStyleTags, Highlighter } from "@lezer/highlight";
 import { overlay } from "./overlay";
 import { Config, config as minimapConfig } from "./config";
+import { ChangedRange, TreeFragment } from "@lezer/common";
+import { diagnostics } from "./state/diagnostics";
+import { selections } from "./state/selections";
 
 type LineData = {
   text: Array<LineText>;
-  selections: Array<LineSelection>;
+  selections: Array<LineSelectionNew>;
   diagnostic: Diagnostic["severity"] | undefined;
 };
 type LineText = { text: string; tags?: string };
 type LineSelection = { from: number; to: number; continues: boolean };
+type LineSelectionNew = { from: number; to: number; extends: boolean };
 
 type FontInfo = { color: string; font: string; fontSize: number };
 type SelectionInfo = { backgroundColor: string };
 
 const minimapTheme = EditorView.theme({
   "&": {
-    // display: "flex",
-    // flexDirection: "row",
     height: "100%",
     overflowY: "auto",
   },
   "& .cm-focused": {
     outline: "none",
-  },
-  "& .cm-scroller": {
-    // flexGrow: 1,
-    // overflowX: "auto",
-    // flexShrink: 1,
   },
   "& .cm-content": {
     overflowX: "auto",
@@ -56,13 +53,15 @@ const minimapTheme = EditorView.theme({
 });
 
 const CANVAS_MAX_WIDTH = 120;
-const SCALE = 3;
+const SCALE = 1;
 
 export class Minimap implements PluginValue {
   public _gutter: HTMLDivElement;
   /*private*/ public _container: HTMLDivElement;
   /*private*/ public _canvas: HTMLCanvasElement;
   /*private*/ public _view: EditorView;
+
+  private _cachedTreeFragments: Array<TreeFragment>;
 
   private _themeClasses: string;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
@@ -118,6 +117,7 @@ export class Minimap implements PluginValue {
     const config = view.state.facet(minimapConfig);
     this.setDisplayText(config.displayText);
     this._themeClasses = view.dom.classList.value;
+    this._cachedTreeFragments = [];
   }
 
   public setDisplayText(displayText: Required<Config>["displayText"]) {
@@ -139,7 +139,9 @@ export class Minimap implements PluginValue {
    *   - (Future) search decorator
    */
 
-  public buildLines(state: EditorState): Array<LineData> {
+  public buildLines(update: ViewUpdate): Array<LineData> {
+    const state = update.state;
+
     const parser = state.facet(language)?.parser;
     if (!parser) {
       console.log("TODO: Handle no parser....");
@@ -147,8 +149,22 @@ export class Minimap implements PluginValue {
     }
 
     const doc = Text.of(state.doc.toString().split("\n"));
-    const tree = parser.parse(doc.toString());
-    const foldedRangeCursor = foldedRanges(state).iter();
+
+    // Trying to do incremental parsing. Previously `parse` step would take about 2ms
+    // https://discuss.codemirror.net/t/incremental-syntax-highlighting-with-lezer/3292
+    const changedRanges: Array<ChangedRange> = [];
+    update.changes.iterChangedRanges((fromA, toA, fromB, toB) =>
+      changedRanges.push({ fromA, toA, fromB, toB })
+    );
+    const changedFragments = TreeFragment.applyChanges(
+      this._cachedTreeFragments,
+      changedRanges
+    );
+    const tree = parser.parse(doc.toString(), changedFragments);
+    this._cachedTreeFragments = TreeFragment.addTree(tree);
+    // End trying to do incremental parsing
+
+    let foldedRangeCursor = foldedRanges(state).iter();
     const highlighter: Highlighter = {
       style: (tags) => highlightingFor(state, tags),
     };
@@ -161,6 +177,7 @@ export class Minimap implements PluginValue {
       to: number;
       hidden: Array<{ from: number; to: number }>; // It's possible to have more than one hidden range within a line...
     }> = [];
+
     for (let i = 1; i <= doc.lines; i++) {
       let { from: lineFrom, to: lineTo, text: lineText } = doc.line(i);
 
@@ -195,7 +212,15 @@ export class Minimap implements PluginValue {
       lineRanges.push({ from: lineFrom, to: lineTo });
     }
 
-    const diagnostics = updateDiagnostics(state, lineRanges);
+    // Reset this, we should consolidate this to not do it twice
+    // Resetting it fixes the bug where we're not rendering collapsed ranges
+    foldedRangeCursor = foldedRanges(state).iter();
+
+    // const diagnosticData = diagnostics({ state, ranges: lineRanges });
+    const diagnosticData = new Map();
+    const selectionData = selections({ state, lines: lineRanges });
+
+    console.log("Selection Data", selectionData);
 
     for (let i = 1; i <= doc.lines; i++) {
       let { from: lineFrom, to: lineTo, text: lineText } = doc.line(i);
@@ -270,8 +295,8 @@ export class Minimap implements PluginValue {
       if (lineText === "") {
         lines.push({
           text: [{ text: "" }],
-          selections: selectionsInLine,
-          diagnostic: diagnostics.get(i),
+          selections: selectionData.get(i),
+          diagnostic: diagnosticData.get(i),
         });
         continue;
       }
@@ -354,8 +379,8 @@ export class Minimap implements PluginValue {
       // Otherwise, just append the line as normal
       lines.push({
         text: spans,
-        selections: selectionsInLine,
-        diagnostic: diagnostics.get(i),
+        selections: selectionData.get(i),
+        diagnostic: diagnosticData.get(i),
       });
     }
 
@@ -371,20 +396,6 @@ export class Minimap implements PluginValue {
 
     const containerX = this._view.contentDOM.clientWidth;
     updateBoxShadow(this._view);
-    // const contentX = this._view.contentDOM.scrollWidth;
-    // const scrollLeft = this._view.contentDOM.scrollLeft;
-
-    // // if (containerX + scrollLeft < contentX) {
-    // //   this._canvas.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
-    // //   console.log(
-    // //     containerX + this._view.contentDOM.scrollLeft,
-    // //     contentX,
-    // //     this._view.contentDOM.scrollLeft
-    // //   );
-    // //   // console.log(this._view.contentDOM.scrollLeft);
-    // // } else {
-    // //   this._canvas.style.boxShadow = "inherit";
-    // // }
 
     if (containerX <= SCALE * CANVAS_MAX_WIDTH) {
       const ratio = containerX / (SCALE * CANVAS_MAX_WIDTH);
@@ -411,6 +422,7 @@ export class Minimap implements PluginValue {
     const { top: paddingTop } = this._view.documentPadding;
     let heightOffset = paddingTop;
 
+    // console.log("Lines", lines);
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       let x = 0;
@@ -463,25 +475,30 @@ export class Minimap implements PluginValue {
         }
       }
 
-      for (let j = 0; j < line.selections.length; j++) {
-        const selection = line.selections[j];
-        const prefix = context.measureText(lineText.slice(0, selection.from));
-        const text = context.measureText(
-          lineText.slice(selection.from, selection.to)
-        );
+      if (line.selections) {
+        // console.log(line.selections);
 
-        context.beginPath();
-        context.rect(
-          prefix.width,
-          heightOffset,
-          selection.continues
-            ? this._canvas.width * SCALE - prefix.width
-            : text.width,
-          lineHeight
-        );
-        context.fillStyle = this.getSelectionInfo().backgroundColor;
+        for (let j = 0; j < line.selections.length; j++) {
+          const selection = line.selections[j];
+          // console.log("A selection", selection);
+          const prefix = context.measureText(lineText.slice(0, selection.from));
+          const text = context.measureText(
+            lineText.slice(selection.from, selection.to)
+          );
 
-        context.fill();
+          context.beginPath();
+          context.rect(
+            prefix.width,
+            heightOffset,
+            selection.extends
+              ? this._canvas.width * SCALE - prefix.width
+              : text.width,
+            lineHeight
+          );
+          context.fillStyle = this.getSelectionInfo().backgroundColor;
+
+          context.fill();
+        }
       }
 
       if (line.diagnostic) {
@@ -612,7 +629,7 @@ export const minimapView = ViewPlugin.fromClass(
         update.selectionSet ||
         update.geometryChanged
       ) {
-        const lines = this.minimap.buildLines(update.state);
+        const lines = this.minimap.buildLines(update);
         this.minimap.render(lines);
       }
     }
@@ -650,56 +667,6 @@ function updateBoxShadow(view: EditorView) {
   }
   // End box shadow stuff
 }
-
-// TODO: we should pull line data including folded ranges out into a facet
-// Will make it easier as we depend on it in quite a few places
-// From, To, Text, ?Original line#? The line data should have hidden range information
-// that would allow us to exclude text easily, to exclude diagnostics easily, etc.
-function updateDiagnostics(
-  state: EditorState,
-  lineRanges: Array<{ from: number; to: number }>
-) {
-  const linesWithDiagnostics = new Set<number>();
-  const severityMap = new Map<number, Diagnostic["severity"]>();
-  forEachDiagnostic(state, (diagnostic, diagnosticFrom, diagnosticTo) => {
-    // TODO: This is the naive way. there's probably an algorithm for more efficiently
-    // finding these indexes. rn this is like o n^2
-    const fromLine =
-      lineRanges.findIndex(
-        (r) => r.from <= diagnosticFrom && r.to >= diagnosticFrom
-      ) + 1;
-    const toLine =
-      lineRanges.findIndex(
-        (r) => r.from <= diagnosticTo && r.to >= diagnosticTo
-      ) + 1;
-    let severity = diagnostic.severity;
-
-    for (let i = fromLine; i <= toLine; i++) {
-      linesWithDiagnostics.add(i);
-
-      const existing = severityMap.get(i);
-      if (existing) {
-        severity = [severity, existing]
-          .sort(
-            (a, b) =>
-              (b === "error" ? 3 : b === "warning" ? 2 : 1) -
-              (a === "error" ? 3 : a === "warning" ? 2 : 1)
-          )
-          .slice(0, 1)[0];
-      }
-      severityMap.set(i, severity);
-    }
-  });
-
-  return severityMap;
-}
-
-// TODO: Move this out. This shouldn't be here
-export const minimapElement = Facet.define<HTMLDivElement, HTMLDivElement>({
-  combine: (el) => {
-    return el[0];
-  },
-});
 
 export function minimap(config: Config = {}): Extension {
   return [minimapTheme, minimapConfig.of(config), minimapView];
