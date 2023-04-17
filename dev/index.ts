@@ -40,6 +40,23 @@ import { minimap } from "../src/index.new";
               },
             ],
           });
+
+        if (node.name == "BlockComment") {
+          diagnostics.push({
+            from: node.from,
+            to: node.to,
+            severity: "error",
+            message: "Block comments are FORBIDDEN",
+            actions: [
+              {
+                name: "Remove",
+                apply(view, from, to) {
+                  view.dispatch({ changes: { from, to } });
+                },
+              },
+            ],
+          });
+        }
       });
     return diagnostics;
   });

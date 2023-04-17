@@ -30,6 +30,12 @@ const long = `
   function isNumber(string) {
     return /^\d+(\.\d*)?$/.test(string)
   }
+  /**
+   * Multi
+   * Line
+   * 
+   * Comment
+   */
 
   function getRandomNumber(min, max) {
     return Math.floor(Math.random() * (max - min + 1) + min);

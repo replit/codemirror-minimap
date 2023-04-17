@@ -7,11 +7,26 @@ import {
   Facet,
   combineConfig,
 } from "@codemirror/state";
-import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { forEachDiagnostic } from "@codemirror/lint";
+import {
+  EditorView,
+  ViewPlugin,
+  ViewUpdate,
+  PluginValue,
+} from "@codemirror/view";
+import {
+  Diagnostic,
+  forEachDiagnostic,
+  setDiagnosticsEffect,
+} from "@codemirror/lint";
 import { highlightTree, getStyleTags, Highlighter } from "@lezer/highlight";
+import { overlay } from "./overlay";
+import { Config, config as minimapConfig } from "./config";
 
-type LineData = { text: Array<LineText>; selections: Array<LineSelection> };
+type LineData = {
+  text: Array<LineText>;
+  selections: Array<LineSelection>;
+  diagnostic: Diagnostic["severity"] | undefined;
+};
 type LineText = { text: string; tags?: string };
 type LineSelection = { from: number; to: number; continues: boolean };
 
@@ -20,8 +35,8 @@ type SelectionInfo = { backgroundColor: string };
 
 const minimapTheme = EditorView.theme({
   "&": {
-    display: "flex",
-    flexDirection: "row",
+    // display: "flex",
+    // flexDirection: "row",
     height: "100%",
     overflowY: "auto",
   },
@@ -29,43 +44,21 @@ const minimapTheme = EditorView.theme({
     outline: "none",
   },
   "& .cm-scroller": {
-    flexGrow: 1,
+    // flexGrow: 1,
+    // overflowX: "auto",
+    // flexShrink: 1,
   },
-  "& .overlay-show-mouse-over": {
-    "& .overlay-container": {
-      opacity: 0,
-      visibility: "hidden",
-      transition: "visibility 0s linear 300ms, opacity 300ms",
-    },
-  },
-  "& .overlay-show-mouse-over:hover": {
-    "& .overlay-container": {
-      opacity: 1,
-      visibility: "visible",
-      transition: "visibility 0s linear 0ms, opacity 300ms",
-    },
-  },
-  ".overlay": {
-    background: "rgb(121, 121, 121)",
-    opacity: "0.2",
-    position: "absolute",
-    right: 0,
-    top: 0,
-    width: "100%",
-    transition: "top 0s ease-in 0ms",
-    "&:hover": {
-      opacity: "0.3",
-    },
-    "&.overlay-active": {
-      opacity: "0.4",
-    },
+  "& .cm-content": {
+    overflowX: "auto",
+    flexShrink: 1,
   },
 });
 
 const CANVAS_MAX_WIDTH = 120;
 const SCALE = 3;
 
-class Minimap {
+export class Minimap {
+  public _gutter: HTMLDivElement;
   /*private*/ public _container: HTMLDivElement;
   private _canvas: HTMLCanvasElement;
   private _view: EditorView;
@@ -81,6 +74,21 @@ class Minimap {
 
     this._canvas = document.createElement("canvas");
     this._container = document.createElement("div");
+    this._container.classList.add("cm-minimap");
+
+    this._gutter = document.createElement("div");
+    this._gutter.style.width = CANVAS_MAX_WIDTH + "px";
+    // this._gutter.style.minHeight = this._view.contentHeight + "px";
+    this._gutter.style.flexShrink = "0";
+    this._gutter.style.position = "sticky";
+    this._gutter.style.top = "0";
+    // this._gutter.style.height = "100%";
+
+    // this._gutter.style.backgroundColor = "red";
+    this._view.scrollDOM.insertBefore(
+      this._gutter,
+      this._view.contentDOM.nextSibling
+    );
 
     this._canvas.style.maxWidth = CANVAS_MAX_WIDTH + "px";
 
@@ -93,28 +101,42 @@ class Minimap {
       e.stopPropagation();
     });
 
-    this._container.style.position = "relative";
-    this._container.style.overflow = "hidden";
+    // this._container.style.position = "relative";
+    // this._container.style.overflow = "hidden";
+
+    this._container.style.position = "absolute";
+    this._container.style.top = 0 + "px";
+    this._container.style.right = 0 + "px";
+    this._container.style.height = "100%";
 
     this._container.appendChild(this._canvas);
-    this._view.dom.appendChild(this._container);
+    this._gutter.appendChild(this._container);
+    // this._view.dom.appendChild(this._container);
+    // this._view.dom.insert
 
     const config = view.state.facet(minimapConfig);
-    this.setShowOverlay(config.showOverlay);
     this.setDisplayText(config.displayText);
     this._themeClasses = view.dom.classList.value;
   }
 
-  public setShowOverlay(showOverlay: Required<Config>["showOverlay"]) {
-    if (showOverlay === "mouse-over") {
-      this._container.classList.add("overlay-show-mouse-over");
-    } else {
-      this._container.classList.remove("overlay-show-mouse-over");
-    }
-  }
   public setDisplayText(displayText: Required<Config>["displayText"]) {
     this._displayText = displayText;
   }
+
+  /**
+   * build lines could have all the line data, then we have different "decorators"
+   * off of that line data state
+   *
+   * - State -> Line Data State
+   *
+   * --> Decorators:
+   *   - Text decorator
+   *   - Box decorator
+   *   - Selection decorator
+   *   - Diagnostics decorator
+   *   - (Future) git decorator
+   *   - (Future) search decorator
+   */
 
   public buildLines(state: EditorState): Array<LineData> {
     const parser = state.facet(language)?.parser;
@@ -133,11 +155,8 @@ class Minimap {
     const lines: Array<LineData> = [];
     let selectionIndex = 0;
 
-    let diagnosticRanges: Array<{ from: number; to: number }> = [];
-    let diagnosticIndex = 0;
-    forEachDiagnostic(state, (diagnostic, diagnosticFrom, diagnosticTo) => {
-      diagnosticRanges.push({ from: diagnosticFrom, to: diagnosticTo });
-    });
+    const diagnostics = updateDiagnostics(state);
+    console.log(diagnostics);
 
     for (let i = 1; i <= doc.lines; i++) {
       let { from: lineFrom, to: lineTo, text: lineText } = doc.line(i);
@@ -206,18 +225,6 @@ class Minimap {
       /* END SELECTIONS */
 
       /* START DIAGNOSTICS */
-      // while (diagnosticIndex < diagnosticRanges.length) {
-      //   const current = diagnosticRanges[diagnosticIndex];
-      //   const { from: diagnosticFrom, to: diagnosticTo } = current;
-
-      //   if (
-      //     (diagnosticFrom >= lineFrom && diagnosticFrom < lineTo) ||
-      //     (diagnosticTo > lineFrom && diagnosticTo <= lineTo)
-      //   ) {
-      //   }
-
-      //   // if (diagnosticRanges[diagnosticIndex].from >= lineFrom &&)
-      // }
 
       /* END DIAGNOSTICS */
 
@@ -225,6 +232,7 @@ class Minimap {
         lines.push({
           text: [{ text: "" }],
           selections: selectionsInLine,
+          diagnostic: diagnostics.get(i),
         });
         continue;
       }
@@ -305,7 +313,11 @@ class Minimap {
       }
 
       // Otherwise, just append the line as normal
-      lines.push({ text: spans, selections: selectionsInLine });
+      lines.push({
+        text: spans,
+        selections: selectionsInLine,
+        diagnostic: diagnostics.get(i),
+      });
     }
 
     return lines;
@@ -321,6 +333,8 @@ class Minimap {
     const containerX = this._view.scrollDOM.clientWidth;
     const contentX = this._view.scrollDOM.scrollWidth;
 
+    // console.log(containerX, contentX);
+
     if (containerX < contentX) {
       this._container.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
     } else {
@@ -335,8 +349,10 @@ class Minimap {
       this._canvas.width = CANVAS_MAX_WIDTH * 2;
     }
 
-    this._canvas.height = this._container.clientHeight * 2;
-    this._canvas.style.height = this._container.clientHeight + "px";
+    // this._canvas.height = this._container.clientHeight * 2;
+    // this._canvas.style.height = this._container.clientHeight + "px";
+    this._canvas.height = 1000;
+    this._canvas.style.height = "500px";
 
     const context = this._canvas.getContext("2d");
     if (!context) {
@@ -391,7 +407,7 @@ class Minimap {
             context.beginPath();
             context.rect(
               x + start * lineHeight,
-              heightOffset + lineHeight,
+              heightOffset,
               (end - start) * lineHeight * widthMultiplier,
               lineHeight - 2 /* 2px buffer between lines */
             );
@@ -423,6 +439,24 @@ class Minimap {
         context.fill();
       }
 
+      if (line.diagnostic) {
+        context.globalAlpha = 0.65;
+        context.fillStyle =
+          line.diagnostic === "error"
+            ? "red"
+            : line.diagnostic === "warning"
+            ? "yellow"
+            : "blue"; // TODO: Does this need to be customized?
+        context.beginPath();
+        context.rect(
+          0,
+          heightOffset,
+          this._canvas.width * SCALE,
+          lineHeight /* - 2 */ /* Do we want 2px buffer between lines? */
+        );
+        context.fill();
+      }
+
       heightOffset += lineHeight;
     }
 
@@ -430,6 +464,7 @@ class Minimap {
   }
 
   public destroy() {
+    this._gutter.remove();
     this._container.remove();
   }
 
@@ -497,122 +532,15 @@ class Minimap {
   }
 }
 
-class Overlay {
-  private _canvas: HTMLCanvasElement;
-  private _view: EditorView;
-  private _isDragging: boolean = false;
-  private _dragStartY: number | undefined;
-
-  public constructor(
-    view: EditorView,
-    /* TODO: Move Overlay inside minimap instead */ minimap: Minimap
-  ) {
-    this._view = view;
-
-    this._canvas = document.createElement("canvas");
-    this._canvas.classList.add("overlay");
-
-    const container = document.createElement("div");
-    container.classList.add("overlay-container");
-
-    container.addEventListener("mousedown", (e) => {
-      if (e.button === 2) {
-        // Right click
-        return;
-      }
-      this._canvas.classList.add("overlay-active");
-      this._dragStartY = e.clientY;
-      this._isDragging = true;
-    });
-    window.addEventListener("mouseup", () => {
-      if (this._isDragging) {
-        this._canvas.classList.remove("overlay-active");
-        this._isDragging = false;
-        this._dragStartY = undefined;
-      }
-    });
-    window.addEventListener("mousemove", (e) => {
-      if (!this._isDragging) {
-        return;
-      }
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      if (!this._dragStartY) {
-        this._dragStartY = e.clientY;
-        return;
-      }
-
-      const delta = e.clientY - this._dragStartY;
-      this._dragStartY = e.clientY;
-      const ratio = SCALE * 2 * 1.4;
-
-      const canvasHeight = this._canvas.getBoundingClientRect().height;
-      const canvasAbsTop = this._canvas.getBoundingClientRect().y;
-      const canvasAbsBot = canvasAbsTop + canvasHeight;
-      const canvasRelTop = parseInt(this._canvas.style.top);
-
-      const atTop = view.scrollDOM.scrollTop === 0;
-      const atBottom =
-        view.scrollDOM.scrollTop >=
-        view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight;
-
-      const movingUp = delta < 0;
-      const movingDown = delta > 0;
-
-      if ((atTop && movingUp) || (atTop && e.clientY < canvasAbsTop)) {
-        return;
-      }
-      if ((atBottom && movingDown) || (atBottom && e.clientY > canvasAbsBot)) {
-        return;
-      }
-
-      // Set view scroll directly
-      view.scrollDOM.scrollTop = (canvasRelTop + delta) * ratio;
-
-      // view.scrollDOM truncates if out of bounds. We need to mimic that behavior here with min/max guard
-      this._canvas.style.top =
-        Math.min(
-          Math.max(0, canvasRelTop + delta),
-          (view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight) / ratio
-        ) + "px";
-    });
-
-    this.setTop();
-    this.setHeight();
-
-    container.appendChild(this._canvas);
-    minimap._container.appendChild(container);
-  }
-
-  public setHeight() {
-    const height = this._view.dom.clientHeight / SCALE / 2 / 1.4;
-    this._canvas.style.height = height + "px";
-  }
-
-  public setTop() {
-    if (!this._isDragging) {
-      const top = this._view.scrollDOM.scrollTop / SCALE / 2 / 1.4;
-      this._canvas.style.top = top + "px";
-    }
-  }
-
-  public destroy() {
-    this._canvas.remove();
-  }
-}
-
 const minimapView = ViewPlugin.fromClass(
   class {
     minimap: Minimap;
-    overlay: Overlay;
     config: Config;
 
     constructor(readonly view: EditorView) {
       this.minimap = new Minimap(view);
-      this.overlay = new Overlay(view, this.minimap);
       this.config = view.state.facet(minimapConfig);
+      minimapElement.of(this.minimap._container);
     }
 
     update(update: ViewUpdate) {
@@ -621,10 +549,20 @@ const minimapView = ViewPlugin.fromClass(
       const configChanged = previousConfig !== config;
       if (configChanged) {
         this.minimap.setDisplayText(config.displayText);
-        this.minimap.setShowOverlay(config.showOverlay);
+      }
+
+      let diagnostics;
+      for (const tr of update.transactions) {
+        for (const ef of tr.effects) {
+          if (ef.is(setDiagnosticsEffect)) {
+            // We shouldn't have to recompute this in render, we should pass it in to a "diagnostics decorator"
+            diagnostics = updateDiagnostics(update.state);
+          }
+        }
       }
 
       if (
+        diagnostics ||
         configChanged ||
         update.heightChanged ||
         update.docChanged ||
@@ -634,43 +572,47 @@ const minimapView = ViewPlugin.fromClass(
         const lines = this.minimap.buildLines(update.state);
         this.minimap.render(lines);
       }
-
-      this.overlay.setHeight();
     }
 
     destroy() {
       this.minimap.destroy();
-      this.overlay.destroy();
     }
   },
-  {
-    eventHandlers: {
-      scroll() {
-        requestAnimationFrame(() => this.overlay.setTop());
-      },
-    },
-  }
+  { provide: () => [overlay()] }
 );
 
-const minimapConfig = Facet.define<Config, Required<Config>>({
-  combine: (configs) =>
-    combineConfig(configs, {
-      displayText: "characters",
-      showOverlay: "always",
-    }),
-});
+function updateDiagnostics(state: EditorState) {
+  const linesWithDiagnostics = new Set<number>();
+  const severityMap = new Map<number, Diagnostic["severity"]>();
+  forEachDiagnostic(state, (diagnostic, diagnosticFrom, diagnosticTo) => {
+    const fromLine = state.doc.lineAt(diagnosticFrom);
+    const toLine = state.doc.lineAt(diagnosticTo);
+    let severity = diagnostic.severity;
 
-type Config = {
-  /**
-   * Determines how to render text. Defaults to `characters`.
-   */
-  displayText?: "blocks" | "characters";
-  /**
-   * The overlay shows the portion of the file currently in the viewport.
-   * Defaults to `always`.
-   */
-  showOverlay?: "always" | "mouse-over";
-};
+    for (let i = fromLine.number; i <= toLine.number; i++) {
+      linesWithDiagnostics.add(i);
+
+      const existing = severityMap.get(i);
+      if (existing) {
+        severity = [severity, existing]
+          .sort(
+            (a, b) =>
+              (b === "error" ? 3 : b === "warning" ? 2 : 1) -
+              (a === "error" ? 3 : a === "warning" ? 2 : 1)
+          )
+          .slice(0, 1)[0];
+      }
+      severityMap.set(i, severity);
+    }
+  });
+
+  return severityMap;
+}
+
+// TODO: Move this out. This shouldn't be here
+export const minimapElement = Facet.define<HTMLDivElement, HTMLDivElement>({
+  combine: (el) => el[0],
+});
 
 export function minimap(config: Config = {}): Extension {
   return [minimapTheme, minimapConfig.of(config), minimapView];
