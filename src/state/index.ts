@@ -1,8 +1,12 @@
+import { EditorView } from "@codemirror/view";
+
 export abstract class LineBasedState<TValue> {
   protected map: Map<number, TValue>;
+  protected view: EditorView;
 
-  public constructor() {
+  public constructor(view: EditorView) {
     this.map = new Map();
+    this.view = view;
   }
 
   public get(lineNumber: number): TValue | undefined {

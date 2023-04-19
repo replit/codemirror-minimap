@@ -23,14 +23,18 @@ import { highlightTree, getStyleTags, Highlighter } from "@lezer/highlight";
 import { overlay } from "./overlay";
 import { Config, config as minimapConfig } from "./config";
 import { ChangedRange, TreeFragment } from "@lezer/common";
-import { diagnostics } from "./state/diagnostics";
-import { selections } from "./state/selections";
+import { DiagnosticState, diagnostics } from "./state/diagnostics";
+import { SelectionState, selections } from "./state/selections";
+import { TextState, text } from "./state/text";
 
-type LineData = {
-  text: Array<LineText>;
-  selections: Array<LineSelectionNew>;
-  diagnostic: Diagnostic["severity"] | undefined;
-};
+export type LineData = Array<
+  Array<{
+    from: number;
+    to: number;
+    // text: string;
+    folded: boolean;
+  }>
+>;
 type LineText = { text: string; tags?: string };
 type LineSelection = { from: number; to: number; continues: boolean };
 type LineSelectionNew = { from: number; to: number; extends: boolean };
@@ -47,13 +51,25 @@ const minimapTheme = EditorView.theme({
     outline: "none",
   },
   "& .cm-content": {
-    overflowX: "auto",
-    flexShrink: 1,
+    // overflowX: "auto",
+    // flexShrink: 1,
+  },
+  "& .cm-minimap-gutter": {
+    flexShrink: 0,
+    position: "sticky",
+    top: 0,
+    right: 0,
+  },
+  "& .cm-minimap-container": {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    height: "100%",
   },
 });
 
 const CANVAS_MAX_WIDTH = 120;
-const SCALE = 1;
+const SCALE = 3;
 
 export class Minimap implements PluginValue {
   public _gutter: HTMLDivElement;
@@ -61,37 +77,37 @@ export class Minimap implements PluginValue {
   /*private*/ public _canvas: HTMLCanvasElement;
   /*private*/ public _view: EditorView;
 
-  private _cachedTreeFragments: Array<TreeFragment>;
+  // private _cachedTreeFragments: Array<TreeFragment>;
 
-  private _themeClasses: string;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
-  private _selectionInfo: SelectionInfo | undefined;
 
-  private _displayText: Required<Config>["displayText"];
+  public text: TextState;
+  public selection: SelectionState;
+  public diagnostic: DiagnosticState;
 
   public constructor(view: EditorView) {
     this._view = view;
 
-    this._canvas = document.createElement("canvas");
-    this._container = document.createElement("div");
-    this._container.classList.add("cm-minimap");
+    this.text = text(view);
+    this.selection = selections(view);
+    this.diagnostic = diagnostics(view);
 
     this._gutter = document.createElement("div");
-    this._gutter.style.width = CANVAS_MAX_WIDTH + "px";
-    // this._gutter.style.minHeight = this._view.contentHeight + "px";
-    this._gutter.style.flexShrink = "0";
+    // this._gutter.classList.add("cm-minimap-gutter");
+    this._gutter.classList.add("cm-gutters");
     this._gutter.style.position = "sticky";
-    this._gutter.style.top = "0";
-    // this._gutter.style.height = "100%";
+    this._gutter.style.left = "unset";
+    this._gutter.style.right = "0px";
+    this._gutter.style.top = "0px";
+    this._gutter.style.width = CANVAS_MAX_WIDTH + "px";
+    this._gutter.style.borderRight = "0px"; // If we could get the gutter border on the left though..
 
-    // this._gutter.style.backgroundColor = "red";
-    this._view.scrollDOM.insertBefore(
-      this._gutter,
-      this._view.contentDOM.nextSibling
-    );
+    this._container = document.createElement("div");
+    this._container.classList.add("cm-minimap-container");
+    // console.log(this._view.dom.style.backgroundColor);
 
+    this._canvas = document.createElement("canvas");
     this._canvas.style.maxWidth = CANVAS_MAX_WIDTH + "px";
-
     this._canvas.addEventListener("click", (e) => {
       const mappedPosition = e.clientY * SCALE * 2 * 1.4;
       const halfEditorHeight = this._view.scrollDOM.clientHeight / 2;
@@ -101,27 +117,14 @@ export class Minimap implements PluginValue {
       e.stopPropagation();
     });
 
-    // this._container.style.position = "relative";
-    // this._container.style.overflow = "hidden";
-
-    this._container.style.position = "absolute";
-    this._container.style.top = 0 + "px";
-    this._container.style.right = 0 + "px";
-    this._container.style.height = "100%";
-
     this._container.appendChild(this._canvas);
     this._gutter.appendChild(this._container);
-    // this._view.dom.appendChild(this._container);
-    // this._view.dom.insert
+    this._view.scrollDOM.insertBefore(
+      this._gutter,
+      this._view.contentDOM.nextSibling
+    );
 
-    const config = view.state.facet(minimapConfig);
-    this.setDisplayText(config.displayText);
-    this._themeClasses = view.dom.classList.value;
-    this._cachedTreeFragments = [];
-  }
-
-  public setDisplayText(displayText: Required<Config>["displayText"]) {
-    this._displayText = displayText;
+    // this._cachedTreeFragments = [];
   }
 
   /**
@@ -139,8 +142,76 @@ export class Minimap implements PluginValue {
    *   - (Future) search decorator
    */
 
-  public buildLines(update: ViewUpdate): Array<LineData> {
+  // public measureFoldedRangeTime(state: EditorState) {
+  //   let foldedRangeCursor = foldedRanges(state).iter();
+  //   // const highlighter: Highlighter = {
+  //   //   style: (tags) => highlightingFor(state, tags),
+  //   // };
+
+  //   const lines: Array<LineData> = [];
+  //   // let selectionIndex = 0;
+  //   const doc = Text.of(state.doc.toString().split("\n"));
+  //   const lineRanges: Array<{
+  //     from: number;
+  //     to: number;
+  //     text: string;
+  //     folded: Array<{ from: number; to: number }>;
+  //   }> = [];
+
+  //   const lineRangesNew: Array<{
+  //     from: number;
+  //     to: number;
+  //     text: string;
+  //     folded: boolean;
+  //   }> = [];
+
+  //   for (let i = 1; i <= doc.lines; i++) {
+  //     let { number: _number, ...line } = doc.line(i);
+  //     let folded: Array<{ from: number; to: number }> = [];
+
+  //     // Iterate through folded ranges until we're at or past the current line
+  //     while (foldedRangeCursor.value && foldedRangeCursor.to < line.from) {
+  //       foldedRangeCursor.next();
+  //     }
+  //     const { from: foldFrom, to: foldTo } = foldedRangeCursor;
+
+  //     // If our line starts in a fold, we update data to the previous stored line
+  //     const lineStartInFold = line.from >= foldFrom && line.from < foldTo;
+  //     if (lineStartInFold) {
+  //       // console.log(_number, line.from, line.to, foldFrom, foldTo);
+  //       // Append to previous data
+  //       let last = lineRanges.pop();
+  //       if (last) {
+  //         line.from = last.from;
+  //         line.text = last.text + line.text;
+  //         folded = last.folded;
+  //       }
+
+  //       // If we haven't already appended this fold
+  //       if (folded.length === 0 || folded.slice(-1)[0].to !== foldTo) {
+  //         folded.push({ from: foldFrom, to: foldTo });
+  //       }
+  //     }
+
+  //     lineRanges.push({ ...line, folded });
+  //     // lineRangesNew.push([]);
+  //   }
+
+  //   console.log("New line ranges", lineRangesNew);
+
+  //   // Reset this, we should consolidate this to not do it twice
+  //   // Resetting it fixes the bug where we're not rendering collapsed ranges
+  //   foldedRangeCursor = foldedRanges(state).iter();
+  // }
+
+  public buildLines(update: ViewUpdate): Array<{
+    from: number;
+    to: number;
+    text: string;
+    // hidden: Array<{ from: number; to: number }>; // It's possible to have more than one hidden range within a line...
+  }> {
     const state = update.state;
+    // this.measureFoldedRangeTime(state);
 
     const parser = state.facet(language)?.parser;
     if (!parser) {
@@ -150,78 +221,212 @@ export class Minimap implements PluginValue {
 
     const doc = Text.of(state.doc.toString().split("\n"));
 
-    // Trying to do incremental parsing. Previously `parse` step would take about 2ms
-    // https://discuss.codemirror.net/t/incremental-syntax-highlighting-with-lezer/3292
-    const changedRanges: Array<ChangedRange> = [];
-    update.changes.iterChangedRanges((fromA, toA, fromB, toB) =>
-      changedRanges.push({ fromA, toA, fromB, toB })
-    );
-    const changedFragments = TreeFragment.applyChanges(
-      this._cachedTreeFragments,
-      changedRanges
-    );
-    const tree = parser.parse(doc.toString(), changedFragments);
-    this._cachedTreeFragments = TreeFragment.addTree(tree);
-    // End trying to do incremental parsing
+    // // Trying to do incremental parsing. Previously `parse` step would take about 2ms
+    // // https://discuss.codemirror.net/t/incremental-syntax-highlighting-with-lezer/3292
+    // const changedRanges: Array<ChangedRange> = [];
+    // update.changes.iterChangedRanges((fromA, toA, fromB, toB) =>
+    //   changedRanges.push({ fromA, toA, fromB, toB })
+    // );
+    // const changedFragments = TreeFragment.applyChanges(
+    //   this._cachedTreeFragments,
+    //   changedRanges
+    // );
+    // const tree = parser.parse(doc.toString(), changedFragments);
+    // this._cachedTreeFragments = TreeFragment.addTree(tree);
+    // // End trying to do incremental parsing
 
     let foldedRangeCursor = foldedRanges(state).iter();
-    const highlighter: Highlighter = {
-      style: (tags) => highlightingFor(state, tags),
-    };
+    // const highlighter: Highlighter = {
+    //   style: (tags) => highlightingFor(state, tags),
+    // };
 
-    const lines: Array<LineData> = [];
-    let selectionIndex = 0;
+    // const lines: Array<LineData> = [];
+    // let selectionIndex = 0;
 
-    const lineRanges: Array<{
-      from: number;
-      to: number;
-      hidden: Array<{ from: number; to: number }>; // It's possible to have more than one hidden range within a line...
-    }> = [];
+    // const lineRanges: Array<{
+    //   from: number;
+    //   to: number;
+    //   text: string;
+    //   folded: Array<{ from: number; to: number }>;
+    // }> = [];
+
+    const lineRangesNew: Array<
+      Array<{
+        from: number;
+        to: number;
+        // text: string;
+        folded: boolean;
+      }>
+    > = [];
 
     for (let i = 1; i <= doc.lines; i++) {
-      let { from: lineFrom, to: lineTo, text: lineText } = doc.line(i);
+      let { from, to } = doc.line(i);
 
       // Iterate through folded ranges until we're at or past the current line
-      while (foldedRangeCursor.value && foldedRangeCursor.to < lineFrom) {
+      while (foldedRangeCursor.value && foldedRangeCursor.to < from) {
         foldedRangeCursor.next();
       }
-
       const { from: foldFrom, to: foldTo } = foldedRangeCursor;
-      const lineStartInFold = lineFrom >= foldFrom && lineFrom < foldTo;
-      const lineEndInFold = lineTo > foldFrom && lineTo <= foldTo;
 
-      // If the line is fully within the fold we ignore it entirely
-      if (lineStartInFold && lineEndInFold) {
-        continue;
-      }
+      const lineStartInFold = from >= foldFrom && from < foldTo;
+      const lineEndsInFold = to > foldFrom && to <= foldTo;
 
-      // If we have a fold ending part way through the line, the rest of the line will
-      // be appended to the previous line
-      if (lineStartInFold && !lineEndInFold) {
-        let last = lineRanges.pop();
-        if (!last) {
-          lineRanges.push({ from: lineFrom, to: lineTo });
-          continue;
+      if (lineStartInFold) {
+        let lastLine = lineRangesNew.pop() ?? [];
+        let lastRange = lastLine.pop();
+
+        // If the last range is folded, we extend the folded range
+        if (lastRange && lastRange.folded) {
+          lastRange.to = foldTo;
         }
-        last.to = lineTo;
-        lineRanges.push(last);
+
+        // If we popped the last range, add it back
+        if (lastRange) {
+          lastLine.push(lastRange);
+        }
+
+        // If we didn't have a previous range, or the previous range wasn't folded add a new range
+        if (!lastRange || !lastRange.folded) {
+          lastLine.push({ from: foldFrom, to: foldTo, folded: true });
+        }
+
+        // If the line doesn't end in a fold, we add another token for the unfolded section
+        if (!lineEndsInFold) {
+          lastLine.push({ from: foldTo, to, folded: false });
+        }
+
+        lineRangesNew.push(lastLine);
         continue;
       }
 
-      // Otherwise, append line data as normal
-      lineRanges.push({ from: lineFrom, to: lineTo });
+      if (lineEndsInFold) {
+        lineRangesNew.push([
+          { from, to: foldFrom, folded: false },
+          { from: foldFrom, to: foldTo, folded: true },
+        ]);
+        continue;
+      }
+
+      lineRangesNew.push([{ from, to, folded: false }]);
     }
+
+    // throw new Error("Stop");
+
+    // for (let i = 1; i <= doc.lines; i++) {
+    //   let { number: _number, ...line } = doc.line(i);
+    //   let folded: Array<{ from: number; to: number }> = [];
+
+    //   // Iterate through folded ranges until we're at or past the current line
+    //   while (foldedRangeCursor.value && foldedRangeCursor.to < line.from) {
+    //     foldedRangeCursor.next();
+    //   }
+    //   const { from: foldFrom, to: foldTo } = foldedRangeCursor;
+    //   const lineStartInFold = line.from >= foldFrom && line.from < foldTo;
+    //   const lineEndInFold = line.to > foldFrom && line.to <= foldTo;
+
+    //   console.log(_number, lineStartInFold, lineEndInFold);
+
+    //   // If we start a line folded, update the previous line's last range
+    //   if (lineStartInFold) {
+    //     console.log("Line ", _number, "starts in fold");
+    //     let previousLine = /*lineRangesNew.pop() ??*/ undefined;
+    //     let lastRange = previousLine.pop();
+
+    //     if (lastRange) {
+    //       lastRange.to = foldTo;
+    //     } else {
+    //       lastRange = { from: foldFrom, to: foldTo, folded: true };
+    //     }
+
+    //     console.log("Pushing", lastRange);
+
+    //     previousLine.push(lastRange);
+    //     // lineRangesNew.push(previousLine);
+
+    //     continue;
+
+    //     //   (last.to = line.to), lineRangesNew.push(last);
+    //     // } else {
+    //     //   lineRangesNew.push({ from: line.from, to: line.to, folded: true });
+    //     // }
+    //   }
+
+    //   // lineRangesNew.push([{ from: line.from, to: line.to, folded: false }]);
+
+    //   continue;
+
+    //   // // If we end a line folded
+    //   // if (lineEndInFold) {
+
+    //   // }
+
+    //   // // If we start a line folded
+    //   // if (lineStartInFold && !lineEndInFold) {
+
+    //   // }
+
+    //   // // If we end a line unfolded,
+    //   // if (!lineEndInFold) {
+    //   // }
+
+    //   // If we have a fold beginning part way through the line we push
+    //   // two separate ranges
+    //   if (!lineStartInFold && lineEndInFold) {
+    //     lineTo = foldFrom;
+    //   }
+
+    //   // If the line is fully within the fold we exclude it
+    //   if (lineStartInFold && lineEndInFold) {
+    //     continue;
+    //   }
+
+    //   // If we have a fold ending part way through the line
+    //   // we append the remaining tokens to the previous line
+    //   let appendingToPreviousLine = false;
+    //   if (lineStartInFold && !lineEndInFold) {
+    //     lineFrom = foldTo;
+    //     appendingToPreviousLine = true;
+    //   }
+
+    //   // If our line starts in a fold, we update data to the previous stored line
+    //   // const lineStartInFold = line.from >= foldFrom && line.from < foldTo;
+    //   if (lineStartInFold) {
+    //     // console.log(_number, line.from, line.to, foldFrom, foldTo);
+    //     // Append to previous data
+    //     let last = lineRanges.pop();
+    //     if (last) {
+    //       line.from = last.from;
+    //       line.text = last.text + line.text;
+    //       folded = last.folded;
+    //     }
+
+    //     // If we haven't already appended this fold
+    //     if (folded.length === 0 || folded.slice(-1)[0].to !== foldTo) {
+    //       folded.push({ from: foldFrom, to: foldTo });
+    //     }
+    //   }
+
+    //   lineRanges.push({ ...line, folded });
+    // }
+
+    // console.log("New line ranges", lineRangesNew);
 
     // Reset this, we should consolidate this to not do it twice
     // Resetting it fixes the bug where we're not rendering collapsed ranges
-    foldedRangeCursor = foldedRanges(state).iter();
+    // foldedRangeCursor = foldedRanges(state).iter();
 
+    // const tagsData = tags({ state, lines: lineRanges }, update);
     // const diagnosticData = diagnostics({ state, ranges: lineRanges });
-    const diagnosticData = new Map();
-    const selectionData = selections({ state, lines: lineRanges });
+    // const selectionData = selections({ update, lines: lineRanges });
 
-    console.log("Selection Data", selectionData);
+    this.text.update({ update, lines: lineRangesNew });
+    this.selection.update({ update, lines: lineRangesNew });
+    this.diagnostic.update({ update, lines: lineRangesNew });
 
+    return lineRangesNew;
+
+    // console.log("Selection Data", selectionData);
+    //
     for (let i = 1; i <= doc.lines; i++) {
       let { from: lineFrom, to: lineTo, text: lineText } = doc.line(i);
 
@@ -255,38 +460,38 @@ export class Minimap implements PluginValue {
       }
       /* END FOLDED RANGES */
 
-      /* START SELECTIONS */
-      const selectionsInLine: Array<LineSelection> = [];
-      do {
-        if (!state.selection.ranges[selectionIndex]) {
-          break;
-        }
-        const { from: sFrom, to: sTo } = state.selection.ranges[selectionIndex];
+      // /* START SELECTIONS */
+      // const selectionsInLine: Array<LineSelection> = [];
+      // do {
+      //   if (!state.selection.ranges[selectionIndex]) {
+      //     break;
+      //   }
+      //   const { from: sFrom, to: sTo } = state.selection.ranges[selectionIndex];
 
-        const startsInLine = lineFrom <= sFrom && lineTo >= sFrom;
-        const endsInLine = lineFrom <= sTo && lineTo >= sTo;
-        const crossesLine = lineFrom > sFrom && lineTo < sTo;
+      //   const startsInLine = lineFrom <= sFrom && lineTo >= sFrom;
+      //   const endsInLine = lineFrom <= sTo && lineTo >= sTo;
+      //   const crossesLine = lineFrom > sFrom && lineTo < sTo;
 
-        if (startsInLine || endsInLine || crossesLine) {
-          // Only add if selection length is greater than 0
-          if (sFrom != sTo) {
-            selectionsInLine.push({
-              from: Math.max(sFrom - lineFrom, 0),
-              to: Math.min(sTo - lineFrom, lineTo - lineFrom),
-              continues: !endsInLine,
-            });
+      //   if (startsInLine || endsInLine || crossesLine) {
+      //     // Only add if selection length is greater than 0
+      //     if (sFrom != sTo) {
+      //       selectionsInLine.push({
+      //         from: Math.max(sFrom - lineFrom, 0),
+      //         to: Math.min(sTo - lineFrom, lineTo - lineFrom),
+      //         continues: !endsInLine,
+      //       });
 
-            if (!endsInLine) {
-              break;
-            }
-          }
-        } else {
-          break;
-        }
+      //       if (!endsInLine) {
+      //         break;
+      //       }
+      //     }
+      //   } else {
+      //     break;
+      //   }
 
-        selectionIndex += 1;
-      } while (selectionIndex < state.selection.ranges.length);
-      /* END SELECTIONS */
+      //   selectionIndex += 1;
+      // } while (selectionIndex < state.selection.ranges.length);
+      // /* END SELECTIONS */
 
       /* START DIAGNOSTICS */
 
@@ -295,104 +500,109 @@ export class Minimap implements PluginValue {
       if (lineText === "") {
         lines.push({
           text: [{ text: "" }],
-          selections: selectionData.get(i),
-          diagnostic: diagnosticData.get(i),
+          // selections: selectionData.get(i),
+          // diagnostic: diagnosticData.get(i),
         });
         continue;
       }
 
       const spans: Array<LineText> = [];
 
-      let pos = lineFrom;
-      highlightTree(
-        tree,
-        highlighter,
-        (from, to, tags) => {
-          if (from > pos) {
-            spans.push({ text: doc.sliceString(pos, from) });
-          }
+      // let pos = lineFrom;
+      // highlightTree(
+      //   tree,
+      //   highlighter,
+      //   (from, to, tags) => {
+      //     if (from > pos) {
+      //       spans.push({ text: doc.sliceString(pos, from) });
+      //     }
 
-          spans.push({ text: doc.sliceString(from, to), tags });
+      //     spans.push({ text: doc.sliceString(from, to), tags });
 
-          pos = to;
-        },
-        lineFrom,
-        lineTo
-      );
+      //     pos = to;
+      //   },
+      //   lineFrom,
+      //   lineTo
+      // );
 
-      if (pos < lineTo) {
-        spans.push({ text: doc.sliceString(pos, lineTo) });
-      }
+      // if (pos < lineTo) {
+      //   spans.push({ text: doc.sliceString(pos, lineTo) });
+      // }
 
-      if (appendingToPreviousLine) {
-        const prevLine = lines[lines.length - 1];
+      // if (appendingToPreviousLine) {
+      //   const prevLine = lines[lines.length - 1];
 
-        // Add spacer, trailing line text to previous line
-        const spacer = { text: "…" };
-        prevLine.text = prevLine.text.concat([spacer, ...spans]);
+      //   // Add spacer, trailing line text to previous line
+      //   const spacer = { text: "…" };
+      //   prevLine.text = prevLine.text.concat([spacer, ...spans]);
 
-        // Update previous selections
-        if (prevLine.selections.length > 0) {
-          // If our last selection continued, add a selection for the spacer
-          if (prevLine.selections[prevLine.selections.length - 1].continues) {
-            prevLine.selections[prevLine.selections.length - 1].to += 1;
-          }
+      //   // Update previous selections
+      //   if (prevLine.selections.length > 0) {
+      //     // If our last selection continued, add a selection for the spacer
+      //     if (prevLine.selections[prevLine.selections.length - 1].continues) {
+      //       prevLine.selections[prevLine.selections.length - 1].to += 1;
+      //     }
 
-          // Selections in this line can no longer continue, as we're appending to it
-          prevLine.selections = prevLine.selections.map((s) => ({
-            ...s,
-            continues: false,
-          }));
-        }
+      //     // Selections in this line can no longer continue, as we're appending to it
+      //     prevLine.selections = prevLine.selections.map((s) => ({
+      //       ...s,
+      //       continues: false,
+      //     }));
+      //   }
 
-        // Adjust trailing line selection positions
-        const spansLength = spans.reduce((p, c) => p + c.text.length, 0);
-        const prevLength = prevLine.text.reduce((v, c) => v + c.text.length, 0);
-        let adjustedSelections = selectionsInLine.map((s) => ({
-          ...s,
-          from: s.from + prevLength - spansLength,
-          to: s.to + prevLength - spansLength,
-        }));
+      //   // Adjust trailing line selection positions
+      //   const spansLength = spans.reduce((p, c) => p + c.text.length, 0);
+      //   const prevLength = prevLine.text.reduce((v, c) => v + c.text.length, 0);
+      //   let adjustedSelections = selectionsInLine.map((s) => ({
+      //     ...s,
+      //     from: s.from + prevLength - spansLength,
+      //     to: s.to + prevLength - spansLength,
+      //   }));
 
-        if (prevLine.selections.length > 0 && adjustedSelections.length > 0) {
-          const last = prevLine.selections.slice(-1)[0];
-          const firstAdditional = adjustedSelections.slice(-1)[0];
-          // Combine consecutive selections if possible
-          if (last.to === firstAdditional.from) {
-            prevLine.selections[prevLine.selections.length - 1] = {
-              from: last.from,
-              to: firstAdditional.to,
-              continues: firstAdditional.continues,
-            };
+      //   if (prevLine.selections.length > 0 && adjustedSelections.length > 0) {
+      //     const last = prevLine.selections.slice(-1)[0];
+      //     const firstAdditional = adjustedSelections.slice(-1)[0];
+      //     // Combine consecutive selections if possible
+      //     if (last.to === firstAdditional.from) {
+      //       prevLine.selections[prevLine.selections.length - 1] = {
+      //         from: last.from,
+      //         to: firstAdditional.to,
+      //         continues: firstAdditional.continues,
+      //       };
 
-            // Remove that selection
-            adjustedSelections = adjustedSelections.slice(1);
-          }
-        }
+      //       // Remove that selection
+      //       adjustedSelections = adjustedSelections.slice(1);
+      //     }
+      //   }
 
-        // Add remaining trailing line selections to previous line
-        prevLine.selections = prevLine.selections.concat(adjustedSelections);
+      //   // Add remaining trailing line selections to previous line
+      //   prevLine.selections = prevLine.selections.concat(adjustedSelections);
 
-        continue;
-      }
+      //   continue;
+      // }
 
       // Otherwise, just append the line as normal
       lines.push({
         text: spans,
-        selections: selectionData.get(i),
-        diagnostic: diagnosticData.get(i),
+        // selections: selectionData.get(i),
+        // diagnostic: diagnosticData.get(i),
       });
     }
 
     return lines;
   }
 
-  public render(lines: Array<LineData>) {
-    console.log("Rerender");
-    if (this._themeClasses !== this._view.dom.classList.value) {
-      this.clearFontInfo();
-      this._themeClasses = this._view.dom.classList.value;
-    }
+  public render(
+    lines: Array<
+      Array<{
+        from: number;
+        to: number;
+        folded: boolean;
+      }>
+    >
+  ) {
+    // console.log(lines);
+    console.log("Rerender", lines);
 
     const containerX = this._view.contentDOM.clientWidth;
     updateBoxShadow(this._view);
@@ -420,107 +630,123 @@ export class Minimap implements PluginValue {
     context.scale(1 / SCALE, 1 / SCALE);
 
     const { top: paddingTop } = this._view.documentPadding;
-    let heightOffset = paddingTop;
+    let offsetY = paddingTop;
 
     // console.log("Lines", lines);
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      let x = 0;
 
-      const lineText = line.text.map((t) => t.text).join("");
+    for (const [index, line] of lines.entries()) {
+      let lineHeight = 13; /* HACKING THIS IN */ /* We should be incrementing this within the drawer, I guess? */ /* Or just computing it globally */
 
-      let lineHeight = 0;
+      const drawContext = {
+        context,
+        offsetY,
+        lineHeight,
+        charWidth: context.measureText("_").width,
+      };
+      this.text.drawLine(drawContext, index + 1);
 
-      for (let j = 0; j < line.text.length; j++) {
-        context.textBaseline = "ideographic";
-        const info = this.getFontInfo(line.text[j]);
+      // TODO: temporarily commenting out bc distracting
+      // this.selection.drawLine(drawContext, i + 1);
+      // this.diagnostic.drawLine(drawContext, i + 1);
 
-        context.fillStyle = info.color;
-        context.font = info.font;
-        lineHeight = Math.max(lineHeight, info.fontSize);
-
-        if (this._displayText === "characters") {
-          // TODO: `fillText` takes up the majority of profiling time in `render`
-          // Try speeding it up with `drawImage`
-          // https://stackoverflow.com/questions/8237030/html5-canvas-faster-filltext-vs-drawimage/8237081
-          context.fillText(line.text[j].text, x, heightOffset + lineHeight);
-          x += context.measureText(line.text[j].text).width;
-        }
-
-        if (this._displayText === "blocks") {
-          const characters = line.text[j].text;
-
-          /* Each block's width is 3/4 of its height */
-          const widthMultiplier = 0.75;
-
-          const nonWhitespaceRegex = /\S+/g;
-          // const whitespaceRanges: [number, number][] = [];
-          let match: RegExpExecArray | null;
-          while ((match = nonWhitespaceRegex.exec(characters)) !== null) {
-            const start = match.index;
-            const end = nonWhitespaceRegex.lastIndex;
-
-            context.globalAlpha = 0.65; // Make the blocks a bit faded
-            context.beginPath();
-            context.rect(
-              x + start * lineHeight * widthMultiplier,
-              heightOffset,
-              (end - start) * lineHeight * widthMultiplier,
-              lineHeight - 2 /* 2px buffer between lines */
-            );
-            context.fill();
-          }
-
-          x += characters.length * lineHeight * widthMultiplier;
-        }
-      }
-
-      if (line.selections) {
-        // console.log(line.selections);
-
-        for (let j = 0; j < line.selections.length; j++) {
-          const selection = line.selections[j];
-          // console.log("A selection", selection);
-          const prefix = context.measureText(lineText.slice(0, selection.from));
-          const text = context.measureText(
-            lineText.slice(selection.from, selection.to)
-          );
-
-          context.beginPath();
-          context.rect(
-            prefix.width,
-            heightOffset,
-            selection.extends
-              ? this._canvas.width * SCALE - prefix.width
-              : text.width,
-            lineHeight
-          );
-          context.fillStyle = this.getSelectionInfo().backgroundColor;
-
-          context.fill();
-        }
-      }
-
-      if (line.diagnostic) {
-        context.globalAlpha = 0.65;
-        context.fillStyle =
-          line.diagnostic === "error"
-            ? "red"
-            : line.diagnostic === "warning"
-            ? "yellow"
-            : "blue"; // TODO: Does this need to be customized?
-        context.beginPath();
-        context.rect(
-          0,
-          heightOffset,
-          this._canvas.width * SCALE,
-          lineHeight /* - 2 */ /* Do we want 2px buffer between lines? */
-        );
-        context.fill();
-      }
-
-      heightOffset += lineHeight;
+      offsetY += lineHeight;
     }
+
+    // for (let i = 0; i < lines.length; i++) {
+    //   const line = lines[i];
+    //   let x = 0;
+
+    //   // const lineText = line.text.map((t) => t.text).join("");
+
+    //   let lineHeight = 0;
+    //   lineHeight = 12;
+    //   for (let j = 0; j < line.to - line.from; j++) {
+    //   context.textBaseline = "ideographic";
+    // const info = this.getFontInfo(line.text[j]);
+    //   context.fillStyle = info.color;
+    // context.font = info.font;
+    // lineHeight = Math.max(lineHeight, info.fontSize);
+    // lineHeight = 12;
+    //   if (this._displayText === "characters") {
+    //     // TODO: `fillText` takes up the majority of profiling time in `render`
+    //     // Try speeding it up with `drawImage`
+    //     // https://stackoverflow.com/questions/8237030/html5-canvas-faster-filltext-vs-drawimage/8237081
+    //     context.fillText(line.text[j].text, x, offsetY + lineHeight);
+    //     x += context.measureText(line.text[j].text).width;
+    //   }
+    //   if (this._displayText === "blocks") {
+    //     const characters = line.text[j].text;
+    //     /* Each block's width is 3/4 of its height */
+    //     // const widthMultiplier = 0.75;
+    //     const charWidth = context.measureText("_").width;
+    //     const nonWhitespaceRegex = /\S+/g;
+    //     // const whitespaceRanges: [number, number][] = [];
+    //     let match: RegExpExecArray | null;
+    //     while ((match = nonWhitespaceRegex.exec(characters)) !== null) {
+    //       const start = match.index;
+    //       const end = nonWhitespaceRegex.lastIndex;
+    //       context.globalAlpha = 0.65; // Make the blocks a bit faded
+    //       context.beginPath();
+    //       context.rect(
+    //         x + start * charWidth,
+    //         offsetY,
+    //         (end - start) * charWidth,
+    //         lineHeight - 2 /* 2px buffer between lines */
+    //       );
+    //       context.fill();
+    //     }
+    //     x += characters.length * charWidth;
+    //   }
+    // }
+
+    // if (line.selections) {
+    //   // console.log(line.selections);
+
+    //   for (let j = 0; j < line.selections.length; j++) {
+    //     const selection = line.selections[j];
+    //     // console.log("A selection", selection);
+    //     const prefix = context.measureText(lineText.slice(0, selection.from));
+    //     const text = context.measureText(
+    //       lineText.slice(selection.from, selection.to)
+    //     );
+
+    //     context.beginPath();
+    //     context.rect(
+    //       prefix.width,
+    //       heightOffset,
+    //       selection.extends
+    //         ? this._canvas.width * SCALE - prefix.width
+    //         : text.width,
+    //       lineHeight
+    //     );
+    //     context.fillStyle = this.getSelectionInfo().backgroundColor;
+
+    //     context.fill();
+    //   }
+    // }
+    /* Each block's width is 3/4 of its height */
+    // const widthMultiplier = 0.75;
+
+    // if (line.diagnostic) {
+    //   context.globalAlpha = 0.65;
+    //   context.fillStyle =
+    //     line.diagnostic === "error"
+    //       ? "red"
+    //       : line.diagnostic === "warning"
+    //       ? "yellow"
+    //       : "blue"; // TODO: Does this need to be customized?
+    //   context.beginPath();
+    //   context.rect(
+    //     0,
+    //     heightOffset,
+    //     this._canvas.width * SCALE,
+    //     lineHeight /* - 2 */ /* Do we want 2px buffer between lines? */
+    //   );
+    //   context.fill();
+    // }
+
+    // offsetY += lineHeight;
+    // }
 
     context.restore();
   }
@@ -567,31 +793,31 @@ export class Minimap implements PluginValue {
     this._fontInfoMap.clear();
   }
 
-  private getSelectionInfo(): SelectionInfo {
-    let result: SelectionInfo;
-    if (this._selectionInfo) {
-      result = this._selectionInfo;
-    } else {
-      result = { backgroundColor: "rgba(0, 0, 0, 0)" };
-    }
-    // Query for existing selection
-    const selection = this._view.dom.querySelector(".cm-selectionBackground");
+  // private getSelectionInfo(): SelectionInfo {
+  //   let result: SelectionInfo;
+  //   if (this._selectionInfo) {
+  //     result = this._selectionInfo;
+  //   } else {
+  //     result = { backgroundColor: "rgba(0, 0, 0, 0)" };
+  //   }
+  //   // Query for existing selection
+  //   const selection = this._view.dom.querySelector(".cm-selectionBackground");
 
-    // // If null, temporarily return transparent. After one paint, we'll get the color
-    // if (!selection) {
-    //   return { backgroundColor: "rgba(0, 0, 0, 0)" };
-    // }
+  //   // // If null, temporarily return transparent. After one paint, we'll get the color
+  //   // if (!selection) {
+  //   //   return { backgroundColor: "rgba(0, 0, 0, 0)" };
+  //   // }
 
-    // Get style information
-    if (selection) {
-      const style = window.getComputedStyle(selection);
-      result = { backgroundColor: style.backgroundColor };
-    }
+  //   // Get style information
+  //   if (selection) {
+  //     const style = window.getComputedStyle(selection);
+  //     result = { backgroundColor: style.backgroundColor };
+  //   }
 
-    this._selectionInfo = result;
+  //   this._selectionInfo = result;
 
-    return result;
-  }
+  //   return result;
+  // }
 }
 
 export const minimapView = ViewPlugin.fromClass(
@@ -608,9 +834,6 @@ export const minimapView = ViewPlugin.fromClass(
       const config = update.state.facet(minimapConfig);
       const previousConfig = update.startState.facet(minimapConfig);
       const configChanged = previousConfig !== config;
-      if (configChanged) {
-        this.minimap.setDisplayText(config.displayText);
-      }
 
       let updatedDiagnostics = false;
       for (const tr of update.transactions) {
@@ -657,9 +880,10 @@ function updateBoxShadow(view: EditorView) {
   // Hacking in box shadow stuff, this needs to re-render when other things do not...
   // Also, had to make a couple things public here, so likely not the right place.
   // Could be a method w/i minimap
-  const containerX = view.contentDOM.clientWidth;
-  const contentX = view.contentDOM.scrollWidth;
-  const scrollLeft = view.contentDOM.scrollLeft;
+  const containerX = view.scrollDOM.clientWidth;
+  const contentX = view.scrollDOM.scrollWidth;
+  const scrollLeft = view.scrollDOM.scrollLeft;
+
   if (containerX + scrollLeft < contentX) {
     minimap._canvas.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
   } else {

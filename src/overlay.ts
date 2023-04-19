@@ -8,6 +8,7 @@ import { minimapView } from "./index.new";
 const SCALE = 3;
 const RATIO = SCALE * 2 /* Canvas is 2x'ed */ * 1.4; /* line height */
 
+// TODO: This need to be unique classnames
 const overlayTheme = EditorView.theme({
   "& .config-only-mouse-over": {
     "& .container": {
@@ -203,7 +204,7 @@ const overlayView = ViewPlugin.fromClass(
       this.dom.removeEventListener("mousedown", this.onMouseDown);
       window.removeEventListener("mouseup", this.onMouseUp);
       window.removeEventListener("mousemove", this.onMouseMove);
-      this.dom.remove(); // ? This right?
+      this.container.remove(); // ? This right?
     }
   },
   {

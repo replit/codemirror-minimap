@@ -7,22 +7,25 @@ Build: pnpm build
 
 ### TODO
 
-[x] Allow scroll to propagate through to cm-scroller - potentially use https://discuss.codemirror.net/t/is-it-possible-to-style-custom-gutter-on-right-side/3776
 [] Diagnostics: should we show diagnostics in lines that are collapsed? - VSCode does not. Right now we do
 [] Diagnostics: appears to be showing on wrong lines when lines are collapsed
-[x] Collapsed lines: actual text isn't collapsing. Just unchanged for some reason. Seems like regression
 [] Clean up selection styling
-[x] Selection seems to be off by one line. - only for blocks. not for text
 [] Long documents that extend minimap beyond height
-[x] Bug: jumping width when long line leaves viewport
-[x] small: add back box shadow when we have h-scroll
-[x] block rendering has some extra black boxes at the end of some lines
-[x] Bug: overlay not actually showing up now that I extracted it.
 [] Bug: smol v-scroll caused by minimap when code otherwise doesn't have scroll
+[] Need to handle word-wrap situations. Right now I split on '\n', and we will need to treat word
+wrap differently, unfortunately
+[] look into canvas scale - see if there's a way to make blocks/chars more crisp
 
 [] Need to test/handle changing editor heights
+[] There's probably no way to fix the background color issue, for now we just use gutter BG color...
+
+- Converstions to new API
+  [x] text
+  [] diag
+  [] sele
 
 Later:
 
 - Git integration?
 - Optimize font rendering
+- Handle inline widgets....
