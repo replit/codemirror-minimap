@@ -200,7 +200,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       context.font = info.font;
       lineHeight = Math.max(lineHeight, info.fontSize);
 
-      console.log(lineHeight);
+      // console.log(lineHeight);
 
       switch (this._displayText) {
         case "characters": {

@@ -5,27 +5,32 @@ Develop: pnpm dev
 Build: pnpm build
 ```
 
-### TODO
+### Todo
 
-[] Diagnostics: should we show diagnostics in lines that are collapsed? - VSCode does not. Right now we do
-[] Diagnostics: appears to be showing on wrong lines when lines are collapsed
-[] Clean up selection styling
-[] Long documents that extend minimap beyond height
-[] Bug: smol v-scroll caused by minimap when code otherwise doesn't have scroll
-[] Need to handle word-wrap situations. Right now I split on '\n', and we will need to treat word
-wrap differently, unfortunately
-[] look into canvas scale - see if there's a way to make blocks/chars more crisp
+Pre 0.1:
 
-[] Need to test/handle changing editor heights
-[] There's probably no way to fix the background color issue, for now we just use gutter BG color...
+- Long documents that extend minimap beyond height
+  - Most things done here, just need to udpate click handler
+- New API:
 
-- Converstions to new API
-  [x] text
-  [] diag
-  [] sele
+  - DONE: Text
+  - Diag
+    - Don't show when line is collapsed
+    - Test offsets are correct when lines are collapsed
+  - Sele
 
-Later:
+- Test changing editor heights
 
-- Git integration?
-- Optimize font rendering
-- Handle inline widgets....
+P2
+
+- Clean up selection styling
+- BG color issue to use background color instead of gutter BG
+- Make blocks/chars more crisp - look into scaling
+- For block rendering: You could instead pick the primary color for each whitespace-sep token, might make it look cleaner.
+- Also for block rendering: Could figure out how to make whitepspace chars take up 1/2 the size (would need non-ws, to fill in the difference). Perhaps this is just leading and trailing characters get an extra 1/4 pt width
+
+P3
+
+- Git integration
+- Optimize font rendering w/ offline canvas
+- Inline widgets

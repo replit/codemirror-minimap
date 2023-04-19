@@ -77,6 +77,10 @@ const overlayView = ViewPlugin.fromClass(
       minimap._container.appendChild(this.container);
       // this.view.state.facet(minimapElement)?.appendChild(container);
       // console.log(this.view.state.facet(minimapElement));
+
+      // Initially set overlay configuration styles
+      const { showOverlay } = view.state.facet(config);
+      this.setShowOverlay(showOverlay);
     }
 
     update(update: ViewUpdate) {
@@ -96,9 +100,24 @@ const overlayView = ViewPlugin.fromClass(
     }
 
     public computeTop() {
-      // console.log(this._isDragging);
       if (!this._isDragging) {
-        const top = this.view.scrollDOM.scrollTop / RATIO;
+        // Previous implementation:
+        // const top = this.view.scrollDOM.scrollTop / RATIO;
+        // this.dom.style.top = top + "px";
+
+        const scroller = this.view.scrollDOM;
+        const currentScrollTop = scroller.scrollTop;
+        const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
+
+        const topForNonOverflowing = currentScrollTop / RATIO;
+
+        const height = this.view.dom.clientHeight / RATIO;
+        const maxTop = this.view.dom.clientHeight - height;
+        const scrollRatio = currentScrollTop / maxScrollTop;
+        const topForOverflowing = maxTop * scrollRatio;
+
+        // Use tildes to negate any `NaN`s
+        const top = Math.min(~~topForOverflowing, ~~topForNonOverflowing);
         this.dom.style.top = top + "px";
       }
     }
@@ -130,8 +149,6 @@ const overlayView = ViewPlugin.fromClass(
       // Start dragging on mousedown
       this._dragStartY = event.clientY;
       this._isDragging = true;
-      console.log(this.dom);
-      this;
       this.container.classList.add("active");
     }
 
@@ -169,6 +186,7 @@ const overlayView = ViewPlugin.fromClass(
       const canvasAbsTop = this.dom.getBoundingClientRect().y;
       const canvasAbsBot = canvasAbsTop + canvasHeight;
       const canvasRelTop = parseInt(this.dom.style.top);
+      const canvasRelTopDouble = parseFloat(this.dom.style.top);
 
       const scrollPosition = this.view.scrollDOM.scrollTop;
       const editorHeight = this.view.scrollDOM.clientHeight;
@@ -177,27 +195,54 @@ const overlayView = ViewPlugin.fromClass(
       const atTop = scrollPosition === 0;
       const atBottom = scrollPosition >= contentHeight - editorHeight;
 
+      // We allow over-dragging past the top/bottom, but the overlay just sticks
+      // to the top or bottom of its range. These checks prevent us from immediately
+      // moving the overlay when the drag changes direction. We should wait until
+      // the cursor has returned to, and begun to pass the bottom/top of the range
       if ((atTop && movingUp) || (atTop && event.clientY < canvasAbsTop)) {
+        console.log("At top");
         return;
       }
       if (
         (atBottom && movingDown) ||
         (atBottom && event.clientY > canvasAbsBot)
       ) {
+        console.log("At bottom");
         return;
       }
 
       // Set view scroll directly
-      this.view.scrollDOM.scrollTop = (canvasRelTop + deltaY) * RATIO;
+
+      const scrollHeight = this.view.scrollDOM.scrollHeight;
+      const clientHeight = this.view.scrollDOM.clientHeight;
+
+      const maxTopNonOverflowing = (scrollHeight - clientHeight) / RATIO;
+      const maxTopOverflowing = clientHeight - clientHeight / RATIO;
+
+      const change = canvasRelTopDouble + deltaY;
+
+      /**
+       * ScrollPosOverflowing is calculated by:
+       * - Calculating the offset (change) relative to the total height of the container
+       * - Multiplying by the maximum scrollTop position for the scroller
+       * - The maximum scrollTop position for the scroller is the total scroll height minus the client height
+       */
+      const relativeToMax = change / maxTopOverflowing;
+      const scrollPosOverflowing =
+        (scrollHeight - clientHeight) * relativeToMax;
+
+      const scrollPosNonOverflowing = change * RATIO;
+      this.view.scrollDOM.scrollTop = Math.max(
+        scrollPosOverflowing,
+        scrollPosNonOverflowing
+      );
 
       // view.scrollDOM truncates if out of bounds. We need to mimic that behavior here with min/max guard
-      this.dom.style.top =
-        Math.min(
-          Math.max(0, canvasRelTop + deltaY),
-          (this.view.scrollDOM.scrollHeight -
-            this.view.scrollDOM.clientHeight) /
-            RATIO
-        ) + "px";
+      const top = Math.min(
+        Math.max(0, change),
+        Math.min(maxTopOverflowing, maxTopNonOverflowing)
+      );
+      this.dom.style.top = top + "px";
     }
 
     public destroy() {

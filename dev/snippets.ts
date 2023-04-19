@@ -15,6 +15,84 @@ const short = `
   const MAX_NUMBER = 100;
 `;
 
+const medium = `
+
+function factorial(n) {
+  if (n === 0 || n === 1) {
+    return 1;
+  } else {
+    return n * factorial(n - 1);
+  }
+/* Ignored */  } /* Hello world */
+
+function isNumber(string) {
+  return /^\d+(\.\d*)?$/.test(string)
+}
+
+const NUM_TRIALS = 100;
+const MAX_NUMBER = 100;
+
+function factorial(n) {
+  if (n === 0 || n === 1) {
+    return 1;
+  } else {
+    return n * factorial(n - 1);
+  }
+/* Ignored */  } /* Hello world */
+
+function isNumber(string) {
+  return /^\d+(\.\d*)?$/.test(string)
+}
+
+const NUM_TRIALS = 100;
+const MAX_NUMBER = 100;
+
+function factorial(n) {
+  if (n === 0 || n === 1) {
+    return 1;
+  } else {
+    return n * factorial(n - 1);
+  }
+/* Ignored */  } /* Hello world */
+
+function isNumber(string) {
+  return /^\d+(\.\d*)?$/.test(string)
+}
+
+const NUM_TRIALS = 100;
+const MAX_NUMBER = 100;
+
+function factorial(n) {
+  if (n === 0 || n === 1) {
+    return 1;
+  } else {
+    return n * factorial(n - 1);
+  }
+/* Ignored */  } /* Hello world */
+
+function isNumber(string) {
+  return /^\d+(\.\d*)?$/.test(string)
+}
+
+const NUM_TRIALS = 100;
+const MAX_NUMBER = 100;
+
+function factorial(n) {
+  if (n === 0 || n === 1) {
+    return 1;
+  } else {
+    return n * factorial(n - 1);
+  }
+/* Ignored */  } /* Hello world */
+
+function isNumber(string) {
+  return /^\d+(\.\d*)?$/.test(string)
+}
+
+const NUM_TRIALS = 100;
+const MAX_NUMBER = 100;
+`;
+
 const long = `
   function factorial(n) {
     if (n === 0 || n === 1) {
@@ -63,6 +141,42 @@ const long = `
   function isNumber3(string) {
     return /^\d+(\.\d*)?$/.test(string)
   }
+  /**
+   * Multi
+   * Line
+   * 
+   * 
+   * 
+   *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+   * 
+   * Comment
+   */
 
 
 
@@ -102,6 +216,245 @@ const long = `
     const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
     sumOfFactorials += factorial(randomInt);
   } /* Hello world */
+
+  /**
+   * Multi
+   * Line
+   * 
+   * 
+   * 
+   *    * Multi
+  * Line
+  * 
+  * 
+  *   *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+   * 
+   * Comment
+   */
+
+  let sumOfFactorials = 0;
+  for (let i = 0; i < NUM_TRIALS; i++) {
+    const randomInt = Math.floor(Math.random() * MAX_NUMBER) + 1;
+    sumOfFactorials += factorial(randomInt);
+  } /* Hello world */
+
+
+  /**
+   * Multi
+   * Line
+   * 
+   * 
+   * 
+   *    * Multi
+  * Line
+  * 
+  * 
+  *   *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line  * 
+  * 
+  *   *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+   * 
+   * Comment  * 
+  * 
+  *   *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+   * 
+   * Comment  * 
+  * 
+  *   *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+   * 
+   * Comment
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+   * 
+   * Comment
+   */
 
   console.log('The sum of factorials is: ', sumOfFactorials);
 
@@ -144,4 +497,4 @@ const long = `
   console.log('The sum of factorials is: ', sumOfFactorials);
 `;
 
-export default { short, long };
+export default { short, medium, long };

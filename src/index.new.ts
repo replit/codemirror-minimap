@@ -64,7 +64,8 @@ const minimapTheme = EditorView.theme({
     position: "absolute",
     top: 0,
     right: 0,
-    height: "100%",
+    // display: "flex",
+    // height: "100%",
   },
 });
 
@@ -85,8 +86,19 @@ export class Minimap implements PluginValue {
   public selection: SelectionState;
   public diagnostic: DiagnosticState;
 
+  public lines: Array<
+    Array<{
+      from: number;
+      to: number;
+      // text: string;
+      folded: boolean;
+    }>
+  >;
+
   public constructor(view: EditorView) {
     this._view = view;
+
+    this.lines = [];
 
     this.text = text(view);
     this.selection = selections(view);
@@ -107,8 +119,10 @@ export class Minimap implements PluginValue {
     // console.log(this._view.dom.style.backgroundColor);
 
     this._canvas = document.createElement("canvas");
+    this._canvas.style.display = "block"; // Needed to prevent minor scroll
     this._canvas.style.maxWidth = CANVAS_MAX_WIDTH + "px";
     this._canvas.addEventListener("click", (e) => {
+      // TODO this needs to be updated for overscroll
       const mappedPosition = e.clientY * SCALE * 2 * 1.4;
       const halfEditorHeight = this._view.scrollDOM.clientHeight / 2;
       this._view.scrollDOM.scrollTop = mappedPosition - halfEditorHeight;
@@ -204,12 +218,14 @@ export class Minimap implements PluginValue {
   //   foldedRangeCursor = foldedRanges(state).iter();
   // }
 
-  public buildLines(update: ViewUpdate): Array<{
-    from: number;
-    to: number;
-    text: string;
-    // hidden: Array<{ from: number; to: number }>; // It's possible to have more than one hidden range within a line...
-  }> {
+  public buildLines(update: ViewUpdate): Array<
+    Array<{
+      from: number;
+      to: number;
+      // text: string;
+      folded: boolean;
+    }>
+  > {
     const state = update.state;
     // this.measureFoldedRangeTime(state);
 
@@ -592,17 +608,8 @@ export class Minimap implements PluginValue {
     return lines;
   }
 
-  public render(
-    lines: Array<
-      Array<{
-        from: number;
-        to: number;
-        folded: boolean;
-      }>
-    >
-  ) {
-    // console.log(lines);
-    console.log("Rerender", lines);
+  public render() {
+    const lines = this.lines;
 
     const containerX = this._view.contentDOM.clientWidth;
     updateBoxShadow(this._view);
@@ -632,18 +639,55 @@ export class Minimap implements PluginValue {
     const { top: paddingTop } = this._view.documentPadding;
     let offsetY = paddingTop;
 
-    // console.log("Lines", lines);
+    let lineHeight = 13; /* HACKING THIS IN */ /* We should be incrementing this within the drawer, I guess? */ /* Or just computing it globally */
 
-    for (const [index, line] of lines.entries()) {
-      let lineHeight = 13; /* HACKING THIS IN */ /* We should be incrementing this within the drawer, I guess? */ /* Or just computing it globally */
+    const maxLinesForCanvas = Math.round(
+      context.canvas.height / (lineHeight / SCALE)
+    );
 
+    const middleOfViewport =
+      this._view.scrollDOM.scrollTop + this._view.scrollDOM.clientHeight / 2;
+
+    // console.log(this._view.scrollDOM.scrollTop * )
+    // const ratio = middleOfViewport / this._view.scrollDOM.scrollHeight;
+
+    // console.log(
+    //   this._view.scrollDOM.scrollTop,
+    //   this._view.scrollDOM.scrollHeight,
+    //   this._view.scrollDOM.clientHeight,
+    //   this._view.dom.scrollHeight,
+    //   this._view.dom.scrollTop,
+    //   this._view.dom.clientHeight
+    // );
+
+    // At scrolltop = 0; startline should = 0;
+    // At scrolltop scrollHeight - clientH; startline should = lines - max lines in viewport
+
+    // const ratio = middleOfViewport / this._view.scrollDOM.scrollHeight;
+    // const startLine = lines.length * ratio - maxLinesForCanvas * ratio;
+    // console.log("Range", startLine, startLine + maxLinesForCanvas);
+
+    // THIS IS WORKING FOR OVERSCROLLING HEIGHT!!! :)
+    const scroller = this._view.scrollDOM;
+    const ratio =
+      scroller.scrollTop *
+      (1 / (scroller.scrollHeight - scroller.clientHeight));
+
+    const startLine =
+      (lines.length - maxLinesForCanvas) * (isNaN(ratio) ? 0 : ratio);
+
+    // Using Math.max keeps us at 0 if the document doesn't overflow the height
+    let startIndex = Math.max(0, Math.round(startLine));
+
+    for (let i = startIndex; i < startIndex + maxLinesForCanvas; i++) {
+      // for (const [index, line] of lines.entries()) {
       const drawContext = {
         context,
         offsetY,
         lineHeight,
         charWidth: context.measureText("_").width,
       };
-      this.text.drawLine(drawContext, index + 1);
+      this.text.drawLine(drawContext, i + 1);
 
       // TODO: temporarily commenting out bc distracting
       // this.selection.drawLine(drawContext, i + 1);
@@ -828,6 +872,10 @@ export const minimapView = ViewPlugin.fromClass(
     constructor(readonly view: EditorView) {
       this.minimap = new Minimap(view);
       this.config = view.state.facet(minimapConfig);
+
+      view.scrollDOM.addEventListener("scroll", () => {
+        this.minimap.render();
+      });
     }
 
     update(update: ViewUpdate) {
@@ -844,17 +892,20 @@ export const minimapView = ViewPlugin.fromClass(
         }
       }
 
-      if (
-        updatedDiagnostics ||
-        configChanged ||
-        update.heightChanged ||
-        update.docChanged ||
-        update.selectionSet ||
-        update.geometryChanged
-      ) {
-        const lines = this.minimap.buildLines(update);
-        this.minimap.render(lines);
-      }
+      // if (
+      //   updatedDiagnostics ||
+      //   configChanged ||
+      //   update.heightChanged ||
+      //   update.docChanged ||
+      //   update.selectionSet ||
+      //   update.geometryChanged
+      // ) {
+      // TODO: We can decouple the rendering from the line building by caching the line data
+      // We already cache individual renderer data, we just need to cache the line ranges in a facet
+      const lines = this.minimap.buildLines(update);
+      this.minimap.lines = this.minimap.buildLines(update);
+      this.minimap.render();
+      // }
     }
 
     destroy() {
@@ -885,7 +936,7 @@ function updateBoxShadow(view: EditorView) {
   const scrollLeft = view.scrollDOM.scrollLeft;
 
   if (containerX + scrollLeft < contentX) {
-    minimap._canvas.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
+    // minimap._canvas.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
   } else {
     minimap._canvas.style.boxShadow = "inherit";
   }
