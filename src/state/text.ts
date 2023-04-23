@@ -24,16 +24,31 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     this._themeClasses = view.dom.classList.value;
   }
 
-  public update({ lines, update }: RangesWithState) {
-    // Optimize individual rerenders:
-    // If doc hasn't changed, we don't need to rebuild the state
-    // TODO: This isn't right. Need to handle
-    // - Config change
-    // - Theme change
-    if (this.map.size > 0 && update.startState.doc.eq(update.state.doc)) {
-      // return;
+  public shouldUpdate(update: ViewUpdate) {
+    // If the doc changed
+    if (update.docChanged) {
+      console.log(update.docChanged);
+      return true;
     }
 
+    // If configuration settings changed
+    if (update.state.facet(config) !== update.startState.facet(config)) {
+      return true;
+    }
+
+    // If the theme changed
+    if (this._themeClasses !== this.view.dom.classList.value) {
+      return true;
+    }
+
+    return false;
+  }
+
+  public update({ lines, update }: RangesWithState) {
+    if (!this.shouldUpdate(update)) {
+      return;
+    }
+    console.log("Text Update");
     this.map.clear();
 
     const parser = update.state.facet(language)?.parser;
@@ -72,8 +87,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     const tree = parser.parse(doc.toString(), treeFragments);
     this._previousTree = tree;
 
-    /* Highlight the document, and store the tags for each line */
-    // let lineIndex = 0;
+    /* Highlight the document, and store the text and tags for each line */
     const highlighter: Highlighter = {
       style: (tags) => highlightingFor(update.state, tags),
     };
@@ -93,50 +107,17 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
           continue;
         }
 
-        // // If it's an empty span we can short circuit
-        // if (span.from === span.to) {
-        //   // console.log("Hi", line.from, line.to);
-        //   const span = this.buildTagSpan(
-        //     { from: span.from, to: span.to },
-        //     line
-        //   );
-        //   this.setLine(index, span);
-        //   continue;
-        // }
-
-        let foldIndex = 0;
         let position = span.from;
         highlightTree(
           tree,
           highlighter,
           (from, to, tags) => {
-            // console.log("Current fold", line.folded[foldIndex]);
-
             if (from > position) {
               spans.push({ text: doc.sliceString(position, from), tags: "" });
-              // spans.push(this.buildTagSpan({ from: position, to: from }, span));
-              // const span = this.buildTagSpan(
-              //   { from: position, to: from },
-              //   span
-              // );
-              // this.setLine(index, span);
             }
 
             spans.push({ text: doc.sliceString(from, to), tags });
-            // spans.push(this.buildTagSpan({ from, to, tags }, span));
-            // this.setLine(index, span);
-
             position = to;
-
-            // if (from > pos) {
-            //   spans.push({ text: doc.sliceString(pos, from) });
-            // }
-
-            // spans.push({ text: doc.sliceString(from, to), tags });
-
-            // pos = to;
-
-            // console.log("Highlighted", from, to, tags);
           },
           span.from,
           span.to
@@ -145,8 +126,6 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
         // If there are remaining spans that did not get highlighted, we append them here
         if (position !== span.to) {
           spans.push({ text: doc.sliceString(position, span.to), tags: "" });
-          // spans.push(this.buildTagSpan({ from: position, to: span.to }, span));
-          // this.setLine(index, span);
         }
       }
 
@@ -154,33 +133,8 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       const lineNumber = index + 1;
       this.map.set(lineNumber, spans);
     }
-
-    // highlightTree(tree, highlighter, (from, to, tags) => {
-    //   // Iterate through lines until we reach the line where the tag begins
-    //   while (lineIndex < lines.length && lines[lineIndex].to < from) {
-    //     lineIndex++;
-    //   }
-
-    //   do {
-    //     // Add the tag span to the line map
-    //     const span = this.buildTagSpan({ from, to, tags }, lines[lineIndex]);
-    //     this.setLine(lineIndex, span);
-
-    //     if (to <= lines[lineIndex].to) {
-    //       // The tag span finished on our current line
-    //       break;
-    //     }
-    //     lineIndex++;
-    //   } while (lineIndex < lines.length);
-    // });
   }
 
-  /**
-   * IDEAL DATA STRUCTURE:
-   * Array< {tag: "tag-string", text: "text-string"} >
-   *
-   * Then you just loop through and apply them, we've already taken care of the folding in state
-   */
   public drawLine(ctx: DrawContext, lineNumber: number) {
     const line = this.get(lineNumber);
     if (!line) {
@@ -188,8 +142,6 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     let { context, charWidth, lineHeight, offsetY } = ctx;
-    // console.log(lineNumber, line, offsetY);
-
     let offsetX = 0;
 
     for (const span of line) {
@@ -199,8 +151,6 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       context.fillStyle = info.color;
       context.font = info.font;
       lineHeight = Math.max(lineHeight, info.fontSize);
-
-      // console.log(lineHeight);
 
       switch (this._displayText) {
         case "characters": {
@@ -264,6 +214,5 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 }
 
 export function text(view: EditorView): TextState {
-  // console.log("creating...");
   return new TextState(view);
 }

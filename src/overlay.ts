@@ -1,7 +1,7 @@
 import { Extension, Facet } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Config, config } from "./config";
-import { minimapView } from "./index.new";
+import { minimapClass, minimapView } from "./index.new";
 // import { minimapElement } from "./index.new";
 
 /* TODO: Some kind of rendering config */
@@ -57,6 +57,14 @@ const overlayView = ViewPlugin.fromClass(
       this.dom = document.createElement("div");
       this.dom.classList.add("current-view");
 
+      const deb = document.createElement("div");
+      deb.style.position = "relative";
+      deb.style.top = "29.26px";
+      deb.style.height = "1px";
+      deb.style.backgroundColor = "green";
+      deb.style.width = "100%";
+      this.dom.appendChild(deb);
+
       this.container = document.createElement("div");
       this.container.classList.add("container");
       this.container.appendChild(this.dom);
@@ -70,7 +78,7 @@ const overlayView = ViewPlugin.fromClass(
       window.addEventListener("mousemove", this.onMouseMove.bind(this));
 
       // Attach the dom elements to the minimap
-      const minimap = view.plugin(minimapView)?.minimap;
+      const minimap = view.plugin(minimapClass);
       if (!minimap) {
         return;
       }
@@ -126,7 +134,7 @@ const overlayView = ViewPlugin.fromClass(
       // TODO: Should instead we just create like a transparent overlay
       // within this class, then we don't need to add stuff to the minimap class/outside of
       // this file
-      const minimap = this.view.plugin(minimapView)?.minimap;
+      const minimap = this.view.plugin(minimapClass);
       if (!minimap) {
         return;
       }
@@ -193,21 +201,20 @@ const overlayView = ViewPlugin.fromClass(
       const contentHeight = this.view.scrollDOM.scrollHeight;
 
       const atTop = scrollPosition === 0;
-      const atBottom = scrollPosition >= contentHeight - editorHeight;
+      const atBottom =
+        Math.round(scrollPosition) >= Math.round(contentHeight - editorHeight);
 
       // We allow over-dragging past the top/bottom, but the overlay just sticks
       // to the top or bottom of its range. These checks prevent us from immediately
       // moving the overlay when the drag changes direction. We should wait until
       // the cursor has returned to, and begun to pass the bottom/top of the range
       if ((atTop && movingUp) || (atTop && event.clientY < canvasAbsTop)) {
-        console.log("At top");
         return;
       }
       if (
         (atBottom && movingDown) ||
         (atBottom && event.clientY > canvasAbsBot)
       ) {
-        console.log("At bottom");
         return;
       }
 

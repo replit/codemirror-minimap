@@ -16,6 +16,16 @@ export class DiagnosticState extends LineBasedState<Severity> {
   }
 
   public update({ lines, update }: RangesWithState) {
+    //      // TODO: Save this to put into diag to save on re-comp
+    // let updatedDiagnostics = false;
+    // for (const tr of update.transactions) {
+    //   for (const ef of tr.effects) {
+    //     if (ef.is(setDiagnosticsEffect)) {
+    //       updatedDiagnostics = true;
+    //     }
+    //   }
+    // }
+
     this.map.clear();
 
     forEachDiagnostic(update.state, (diagnostic, from, to) => {
