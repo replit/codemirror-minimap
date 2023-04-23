@@ -10,6 +10,7 @@
       height: 500px;
       overflow-y: auto;
       border: 1px solid gray;
+      margin-top: 100px;
     }
 
     #controls>div {
@@ -22,6 +23,7 @@
 
   <!-- Editor -->
   <div id="editor"></div>
+
   <script type="module" src="./index.ts"></script>
 
   <!-- Controls -->
@@ -34,6 +36,7 @@
           .join("#");
       }
     </script>
+    <!-- TODO: Perhaps turn these into radio buttons?-->
     <div>
       <button onclick="replaceHash('mode', 'light')">Light Mode</button>
       <button onclick="replaceHash('mode', 'dark')">Dark Mode</button>
@@ -54,6 +57,10 @@
     <div>
       <button onclick="replaceHash('text', 'characters')">Text - Characters</button>
       <button onclick="replaceHash('text', 'blocks')">Text - Blocks</button>
+    </div>
+    <div>
+      <button onclick="replaceHash('wrapping', 'nowrap')">Line Wrapping - None</button>
+      <button onclick="replaceHash('wrapping', 'wrap')">Line Wrapping - Wrap</button>
     </div>
   </div>
 

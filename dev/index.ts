@@ -1,6 +1,6 @@
 import { basicSetup } from "codemirror";
 import { javascript } from "@codemirror/lang-javascript";
-import { EditorState, Compartment } from "@codemirror/state";
+import { EditorState, Compartment, StateEffect } from "@codemirror/state";
 import { EditorView, drawSelection } from "@codemirror/view";
 import { linter, Diagnostic } from "@codemirror/lint";
 import { syntaxTree } from "@codemirror/language";
@@ -8,7 +8,7 @@ import { oneDark } from "@codemirror/theme-one-dark";
 
 import snippets from "./snippets";
 
-import { minimap } from "../src/index.new";
+import { minimap } from "../src/index";
 
 (() => {
   /* Apply initial configuration from controls */
@@ -16,6 +16,7 @@ import { minimap } from "../src/index.new";
   const showMinimap = getShowMinimap(window.location.hash);
   const showOverlay = getShowOverlay(window.location.hash);
   const displayText = getDisplayText(window.location.hash);
+  const wrap = getLineWrap(window.location.hash);
   const mode = getMode(window.location.hash);
   const themeCompartment = new Compartment();
   const extensionCompartment = new Compartment();
@@ -65,7 +66,6 @@ import { minimap } from "../src/index.new";
     state: EditorState.create({
       doc,
       extensions: [
-        /* Default extensions */
         basicSetup,
         javascript(),
         drawSelection(),
@@ -78,11 +78,10 @@ import { minimap } from "../src/index.new";
         }),
         testLinter,
         themeCompartment.of(mode === "dark" ? oneDark : []),
-
-        /* Minimap extension */
-        extensionCompartment.of(
-          showMinimap ? minimap({ showOverlay, displayText }) : []
-        ),
+        extensionCompartment.of([
+          showMinimap ? minimap({ showOverlay, displayText }) : [],
+          wrap ? EditorView.lineWrapping : [],
+        ]),
       ],
     }),
     parent: document.getElementById("editor") as HTMLElement,
@@ -92,23 +91,22 @@ import { minimap } from "../src/index.new";
   window.addEventListener("hashchange", (e: HashChangeEvent) => {
     const prevDoc = getDoc(e.oldURL);
     const newDoc = getDoc(e.newURL);
-
-    if (prevDoc !== newDoc) {
-      view.dispatch({
-        changes: { from: 0, to: view.state.doc.length, insert: newDoc },
-      });
-    }
-
     const showMinimap = getShowMinimap(e.newURL);
     const showOverlay = getShowOverlay(window.location.hash);
     const displayText = getDisplayText(window.location.hash);
     const mode = getMode(window.location.hash);
+    const wrap = getLineWrap(window.location.hash);
 
     view.dispatch({
+      changes:
+        prevDoc !== newDoc
+          ? { from: 0, to: view.state.doc.length, insert: newDoc }
+          : undefined,
       effects: [
-        extensionCompartment.reconfigure(
-          showMinimap ? minimap({ showOverlay, displayText }) : []
-        ),
+        extensionCompartment.reconfigure([
+          showMinimap ? minimap({ showOverlay, displayText }) : [],
+          wrap ? EditorView.lineWrapping : [],
+        ]),
         themeCompartment.reconfigure(mode === "dark" ? oneDark : []),
       ],
     });
@@ -143,6 +141,10 @@ function getDisplayText(url: string): "blocks" | "characters" | undefined {
   }
 
   return undefined;
+}
+function getLineWrap(url: string): boolean {
+  const value = getHashValue("wrapping", url);
+  return value == "wrap";
 }
 function getMode(url: string): "dark" | "light" {
   return getHashValue("mode", url) === "dark" ? "dark" : "light";

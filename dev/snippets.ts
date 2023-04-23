@@ -101,7 +101,7 @@ const long = `
       return n * factorial(n - 1);
     }
 /* Ignored */  } /* Hello world */
-
+// XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   const NUM_TRIALS = 100;
   const MAX_NUMBER = 100;
 
@@ -154,7 +154,7 @@ const long = `
   *    * Multi
   * Line
   * 
-  * 
+  * XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   *    * Multi
   * Line
   * 
@@ -222,7 +222,7 @@ const long = `
    * Line
    * 
    * 
-   * 
+   * XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
    *    * Multi
   * Line
   * 
@@ -250,7 +250,7 @@ const long = `
   *    * Multi
   * Line
   * 
-  * 
+  * XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   *    * Multi
   * Line
   * 
@@ -313,7 +313,49 @@ const long = `
   *   *    * Multi
   * Line
   * 
+  * XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+  *    * Multi
+  * Line
   * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+  * 
+  * 
+  *    * Multi
+  * Line
+   * 
+   * Comment  * 
+  * 
+  *   *    * Multi
+  * Line
+  * 
+  * XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   *    * Multi
   * Line
   * 
@@ -387,49 +429,7 @@ const long = `
   * 
   *    * Multi
   * Line
-  * 
-  * 
-  *    * Multi
-  * Line
-   * 
-   * Comment  * 
-  * 
-  *   *    * Multi
-  * Line
-  * 
-  * 
-  *    * Multi
-  * Line
-  * 
-  * 
-  *    * Multi
-  * Line
-  * 
-  * 
-  * 
-  *    * Multi
-  * Line
-  * 
-  *    * Multi
-  * Line
-  * 
-  * 
-  *    * Multi
-  * Line
-  * 
-  * 
-  *    * Multi
-  * Line
-  * 
-  * 
-  * 
-  *    * Multi
-  * Line
-  * 
-  * 
-  *    * Multi
-  * Line
-  * 
+  * XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
   * 
   *    * Multi
   * Line

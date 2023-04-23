@@ -17,7 +17,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "vite ./dev",
-    "build": "cm-buildhelper ./src/index.new.ts"
+    "build": "cm-buildhelper ./src/index.ts"
   },
   "dependencies": {
     "@codemirror/language": "^6.0.0",

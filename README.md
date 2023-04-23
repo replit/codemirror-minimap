@@ -1,16 +1,12 @@
 # codemirror-minimap
 
-```
-Develop: pnpm dev
-Build: pnpm build
-```
+Develop: `pnpm dev`
+Build: `pnpm build`
 
 ### Todo
 
 Pre 0.1:
 
-- Long documents that extend minimap beyond height
-  - Most things done here, just need to udpate click handler
 - New API:
 
   - DONE: Text
