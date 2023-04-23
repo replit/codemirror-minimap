@@ -11,7 +11,7 @@ import {
   forEachDiagnostic,
   setDiagnosticsEffect,
 } from "@codemirror/lint";
-import { overlay } from "./overlay";
+import { currentTopFromScrollHeight, overlay } from "./overlay";
 import { Config, config as minimapConfig } from "./config";
 import { DiagnosticState, diagnostics } from "./state/diagnostics";
 import { SelectionState, selections } from "./state/selections";
@@ -54,6 +54,7 @@ const minimapTheme = EditorView.theme({
 
 const CANVAS_MAX_WIDTH = 120;
 const SCALE = 3;
+const RATIO = SCALE * 2 * 1.4;
 
 export const minimapClass = ViewPlugin.fromClass(
   class {
@@ -104,125 +105,21 @@ export const minimapClass = ViewPlugin.fromClass(
       this._canvas.style.display = "block"; // Needed to prevent minor scroll
       this._canvas.style.maxWidth = CANVAS_MAX_WIDTH + "px";
       this._canvas.addEventListener("click", (e) => {
-        // TODO: This isn't working at all yet
+        let scrollTop = this._view.scrollDOM.scrollTop;
+        const scrollHeight = this._view.scrollDOM.scrollHeight;
+        const clientHeight = this._view.scrollDOM.clientHeight;
 
         const target = e.currentTarget as HTMLCanvasElement;
-        const relativeY = e.clientY - target.getBoundingClientRect().top;
+        const deltaY = (e.clientY - target.getBoundingClientRect().top) * RATIO;
 
-        const scroller = this._view.scrollDOM;
-        const currentScrollTop = scroller.scrollTop;
-        const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
+        const scrollRatio = scrollTop / (scrollHeight - clientHeight);
+        const visibleRange = clientHeight * RATIO - clientHeight;
+        const visibleTop = visibleRange * scrollRatio;
 
-        const halfViewportHeight = this._view.scrollDOM.clientHeight / 2;
-        const ratio =
-          scroller.scrollTop *
-          (1 / (scroller.scrollHeight - scroller.clientHeight));
+        const scrollViewTop = scrollTop - visibleTop;
 
-        // console.log(
-        //   "Previous relativeY",
-        //   Math.round((currentScrollTop + halfViewportHeight) / (SCALE * 2 * 1.4))
-        // );
-
-        console.log(
-          "The max we can render on one canvas",
-          Math.round(target.getBoundingClientRect().height)
-        );
-        console.log(
-          "The max we need to render the whole document",
-          scroller.scrollHeight / SCALE / 2 / 1.4
-        );
-        console.log("We just went to ", relativeY, "offset");
-        console.log(
-          relativeY,
-          "is ",
-          relativeY / (scroller.scrollHeight / SCALE / 2 / 1.4),
-          "% of the whole doc"
-        );
-
-        const percent = relativeY / (scroller.scrollHeight / SCALE / 2 / 1.4);
-        const above = percent * target.getBoundingClientRect().height;
-        const below = target.getBoundingClientRect().height - above;
-        console.log("That puts us at render min", relativeY - above);
-        console.log("That puts us at render max", relativeY + below);
-
-        console.log(
-          "Now for the next render, we'll use render min as our starting place. We will add it to relativeY"
-        );
-
-        console.log(
-          "Adding it to relativeY will give us our total relY, which we will then multiply and adjust half hight, etc"
-        );
-
-        console.log("So how can we get render min on the next render?");
-
-        const relysub =
-          (scroller.scrollTop + halfViewportHeight) / (SCALE * 2 * 1.4);
-        const percent2 = relysub / (scroller.scrollHeight / SCALE / 2 / 1.4);
-        const above2 = percent2 * target.getBoundingClientRect().height;
-        const renderMin = relysub - above2;
-        /***
-         * scrollTop + Half Height       (scale * 2 * 1.4)                boundclient.height
-         * -----------------------   X  ----------------------------- X
-         * scale * 2 * 1.4               scrollHeight
-         *
-         *
-         * const above = (scrollTop + HH) / scrollHeight * boundClient.height
-         * const min =
-         */
-        // console.log(
-        //   "Current above",
-        //   ((scroller.scrollTop + halfViewportHeight) / scroller.scrollHeight) *
-        //     target.getBoundingClientRect().height
-        // );
-        // console.log(
-        //   "Current relY",
-        //   (scroller.scrollTop + halfViewportHeight) / (SCALE * 2 * 1.4)
-        // );
-
-        const previousRenderMin =
-          (scroller.scrollTop + halfViewportHeight) / (SCALE * 2 * 1.4) -
-          ((scroller.scrollTop + halfViewportHeight) / scroller.scrollHeight) *
-            target.getBoundingClientRect().height;
-        console.log("Previous renderMin", previousRenderMin);
-
-        console.log("Previous top + relY", previousRenderMin + relativeY);
-
-        // Note we might be off by 2x?
-
-        // scale multiplier goes from X pixel offset on canvas --> Y pixel offset on scroller
-        // scale divider goes from Y pixel offset on scroller --> X pixel offset on canvas
-
-        // console.log("Current scrollTop", currentScrollTop);
-        // console.log(
-        //   "currentScrollTop div scale",
-        //   currentScrollTop / (SCALE * 2 * 1.4)
-        // );
-        // console.log("Relative times scale", relativeY * SCALE * 2 * 1.4);
-        // console.log("New RelativeY", relativeY);
-        // console.log("We're ", ratio, "percent through doc");
-        // console.log(
-        //   "We just clicked at the ",
-        //   relativeY / target.getBoundingClientRect().height,
-        //   "percent of the view"
-        // );
-        // console.log(
-        //   "new value",
-        //   relativeY * SCALE * 2 * 1.4 - halfViewportHeight + currentScrollTop
-        // );
-
-        // ScrollTop = relativeY * SCALE * 2 * 1.4 - halfViewportHeight
-        // ScrollTop + HalfVP = relativeY * SCALE * 2 * 1.4
-        // The current scrolltop + half / scale thing should give me the relativeY. Then I compare that against the new relativeY?
-
-        // The position should be centered in the middle of the editor if possible
-        // scrollTop will round up to 0 if it's set to a value < 0.
-        // const halfViewportHeight = this._view.scrollDOM.clientHeight / 2;
-
-        // OK so this works almost perfectly. slightly off on overscroll. perfect on non overscroll
-        console.log("Previous render min", previousRenderMin);
-        this._view.scrollDOM.scrollTop =
-          (Math.max(previousRenderMin, 0) + relativeY) * SCALE * 2 * 1.4 -
-          halfViewportHeight;
+        scrollTop = Math.max(0, scrollViewTop) + deltaY - clientHeight / 2;
+        this._view.scrollDOM.scrollTop = scrollTop;
 
         e.preventDefault();
         e.stopPropagation();
@@ -561,8 +458,9 @@ export const minimapView = ViewPlugin.fromClass(
   {
     eventHandlers: {
       scroll: (event, view) => {
-        console.log("Handling scroll from event handler");
         updateBoxShadow(view);
+
+        // console.log("Scroller Top", view.scrollDOM.scrollTop);
 
         // TODO: Clean up naming of all this stuff
         const minimap = view.plugin(minimapClass);

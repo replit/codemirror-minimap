@@ -57,14 +57,6 @@ const overlayView = ViewPlugin.fromClass(
       this.dom = document.createElement("div");
       this.dom.classList.add("current-view");
 
-      const deb = document.createElement("div");
-      deb.style.position = "relative";
-      deb.style.top = "29.26px";
-      deb.style.height = "1px";
-      deb.style.backgroundColor = "green";
-      deb.style.width = "100%";
-      this.dom.appendChild(deb);
-
       this.container = document.createElement("div");
       this.container.classList.add("container");
       this.container.appendChild(this.dom);
@@ -113,19 +105,26 @@ const overlayView = ViewPlugin.fromClass(
         // const top = this.view.scrollDOM.scrollTop / RATIO;
         // this.dom.style.top = top + "px";
 
-        const scroller = this.view.scrollDOM;
-        const currentScrollTop = scroller.scrollTop;
-        const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
+        // const scroller = this.view.scrollDOM;
+        // const currentScrollTop = scroller.scrollTop;
+        // const maxScrollTop = scroller.scrollHeight - scroller.clientHeight;
 
-        const topForNonOverflowing = currentScrollTop / RATIO;
+        // const topForNonOverflowing = currentScrollTop / RATIO;
 
-        const height = this.view.dom.clientHeight / RATIO;
-        const maxTop = this.view.dom.clientHeight - height;
-        const scrollRatio = currentScrollTop / maxScrollTop;
-        const topForOverflowing = maxTop * scrollRatio;
+        // const height = this.view.dom.clientHeight / RATIO;
+        // const maxTop = this.view.dom.clientHeight - height;
+        // const scrollRatio = currentScrollTop / maxScrollTop;
+        // const topForOverflowing = maxTop * scrollRatio;
 
-        // Use tildes to negate any `NaN`s
-        const top = Math.min(~~topForOverflowing, ~~topForNonOverflowing);
+        // // Use tildes to negate any `NaN`s
+        // const top = Math.min(~~topForOverflowing, ~~topForNonOverflowing);
+
+        const top = currentTopFromScrollHeight(
+          this.view.dom.clientHeight,
+          this.view.scrollDOM.scrollTop,
+          this.view.scrollDOM.scrollHeight
+        );
+        // console.log("Setting overlay top to ", top);
         this.dom.style.top = top + "px";
       }
     }
@@ -227,6 +226,7 @@ const overlayView = ViewPlugin.fromClass(
       const maxTopOverflowing = clientHeight - clientHeight / RATIO;
 
       const change = canvasRelTopDouble + deltaY;
+      // console.log("canvasrel", canvasRelTopDouble);
 
       /**
        * ScrollPosOverflowing is calculated by:
@@ -270,4 +270,24 @@ const overlayView = ViewPlugin.fromClass(
 
 export function overlay(): Extension {
   return [overlayTheme, overlayView];
+}
+
+export function currentTopFromScrollHeight(
+  clientHeight: number,
+  scrollTop: number,
+  scrollHeight: number
+) {
+  const maxScrollTop = scrollHeight - clientHeight;
+
+  const topForNonOverflowing = scrollTop / RATIO;
+
+  const height = clientHeight / RATIO;
+  const maxTop = clientHeight - height;
+  const scrollRatio = scrollTop / maxScrollTop;
+  const topForOverflowing = maxTop * scrollRatio;
+
+  // Use tildes to negate any `NaN`s
+  const top = Math.min(~~topForOverflowing, ~~topForNonOverflowing);
+
+  return top;
 }

@@ -48,7 +48,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     if (!this.shouldUpdate(update)) {
       return;
     }
-    console.log("Text Update");
+    // console.log("Text Update");
     this.map.clear();
 
     const parser = update.state.facet(language)?.parser;
