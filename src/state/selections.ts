@@ -1,6 +1,6 @@
 import { LineBasedState } from ".";
 import { EditorView, ViewUpdate } from "@codemirror/view";
-import { LineData } from "../index.new";
+import { LineData } from "../index";
 
 type Selection = { from: number; to: number; extends: boolean };
 type DrawInfo = { backgroundColor: string };

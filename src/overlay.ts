@@ -1,8 +1,8 @@
 import { Extension, Facet } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Config, config } from "./config";
-import { minimapClass, minimapView } from "./index.new";
-// import { minimapElement } from "./index.new";
+import { minimapClass, minimapView } from "./index";
+// import { minimapElement } from "./index";
 
 /* TODO: Some kind of rendering config */
 const SCALE = 3;
