@@ -1,26 +1,10 @@
 import { LineBasedState } from ".";
 import { EditorView, ViewUpdate } from "@codemirror/view";
-import { LineData } from "../index";
 import { LinesState } from "../LinesState";
+import { DrawContext } from "../types";
 
 type Selection = { from: number; to: number; extends: boolean };
 type DrawInfo = { backgroundColor: string };
-
-// TODO: this should be a package-wide type
-export type RangesWithState = {
-  update: ViewUpdate;
-  lines: LineData;
-};
-
-// TODO: this should be a package-wide type
-export type DrawContext = {
-  context: CanvasRenderingContext2D;
-  offsetY: number;
-  lineHeight: number;
-  charWidth: number;
-};
-
-const SCALE = 3; // TODO global config
 
 export class SelectionState extends LineBasedState<Array<Selection>> {
   private _drawInfo: DrawInfo | undefined;
@@ -50,9 +34,12 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
     }
 
     /* TODO handle folds changing */
+    const changedFolds = true;
+    if (changedFolds) {
+      return true;
+    }
 
-    // TODO: True until above todo is handled
-    return true;
+    return false;
   }
 
   public update(update: ViewUpdate) {
@@ -138,7 +125,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {
-    const { context, lineHeight, charWidth, offsetY } = ctx;
+    const { context, lineHeight, charWidth, offsetY, scale } = ctx;
     const selections = this.get(lineNumber);
     if (!selections) {
       return;
@@ -148,7 +135,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
     for (const selection of selections) {
       const offsetX = selection.from * charWidth;
       const textWidth = (selection.to - selection.from) * charWidth;
-      const fullWidth = context.canvas.width * SCALE /* Why? */ - offsetX;
+      const fullWidth = context.canvas.width * scale - offsetX;
 
       if (selection.extends) {
         // Draw the full width rectangle in the background

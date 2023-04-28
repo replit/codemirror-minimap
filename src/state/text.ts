@@ -4,14 +4,12 @@ import { Highlighter, highlightTree } from "@lezer/highlight";
 import { ChangedRange, Tree, TreeFragment } from "@lezer/common";
 import { highlightingFor, language } from "@codemirror/language";
 import { EditorView, ViewUpdate } from "@codemirror/view";
-import { DrawContext, RangesWithState } from "./selections";
+import { DrawContext } from "../types";
 import { Config, Options } from "../Config";
 import { LinesState } from "../LinesState";
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; fontSize: number };
-
-const SCALE = 3;
 
 export class TextState extends LineBasedState<Array<TagSpan>> {
   private _previousTree: Tree | undefined;
@@ -43,9 +41,12 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     /* TODO handle folds changing */
+    const changedFolds = true;
+    if (changedFolds) {
+      return true;
+    }
 
-    // TODO: True until above todo is handled
-    return true;
+    return false;
   }
 
   public update(update: ViewUpdate) {

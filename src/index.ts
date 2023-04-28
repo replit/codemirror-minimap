@@ -1,31 +1,12 @@
-import { foldedRanges, highlightingFor, language } from "@codemirror/language";
-import { Text, Extension } from "@codemirror/state";
-import {
-  EditorView,
-  ViewPlugin,
-  ViewUpdate,
-  PluginValue,
-} from "@codemirror/view";
-import {
-  Diagnostic,
-  forEachDiagnostic,
-  setDiagnosticsEffect,
-} from "@codemirror/lint";
-import { currentTopFromScrollHeight, Overlay } from "./overlay";
+import { Extension } from "@codemirror/state";
+import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
+import { Overlay } from "./Overlay";
 import { Config, Options } from "./Config";
 import { DiagnosticState, diagnostics } from "./state/diagnostics";
 import { SelectionState, selections } from "./state/selections";
 import { TextState, text } from "./state/text";
-import { LinesState, Lines } from "./LinesState";
+import { LinesState } from "./LinesState";
 import crelt from "crelt";
-
-export type LineData = Array<
-  Array<{
-    from: number;
-    to: number;
-    folded: boolean;
-  }>
->;
 
 const Theme = EditorView.theme({
   "&": {
@@ -58,8 +39,9 @@ const RATIO = SCALE * 2 * 1.4;
 const minimapClass = ViewPlugin.fromClass(
   class {
     private dom: HTMLElement;
-    /*private*/ public inner: HTMLElement;
+    private inner: HTMLElement;
     private canvas: HTMLCanvasElement;
+
     private view: EditorView;
 
     public text: TextState;
@@ -99,7 +81,6 @@ const minimapClass = ViewPlugin.fromClass(
     render() {
       const innerX = this.view.contentDOM.clientWidth;
       this.updateBoxShadow();
-      // updateBoxShadow(this.view);
 
       if (innerX <= SCALE * CANVAS_MAX_WIDTH) {
         const ratio = innerX / (SCALE * CANVAS_MAX_WIDTH);
@@ -126,32 +107,17 @@ const minimapClass = ViewPlugin.fromClass(
 
       let lineHeight = 13; /* HACKING THIS IN */ /* We should be incrementing this within the drawer, I guess? */ /* Or just computing it globally */
 
-      const lines = this.view.state.field(LinesState);
-
-      const maxLinesForCanvas = Math.min(
-        Math.round(context.canvas.height / (lineHeight / SCALE)),
-        lines.length
-      );
-
-      // THIS IS WORKING FOR OVERSCROLLING HEIGHT!!! :)
-      const scroller = this.view.scrollDOM;
-      const overscroll = scroller.scrollHeight - scroller.clientHeight;
-      const ratio = overscroll > 0 ? scroller.scrollTop * (1 / overscroll) : 0;
-
-      const startLine = (lines.length - maxLinesForCanvas) * ratio;
-
-      // Using Math.max keeps us at 0 if the document doesn't overflow the height
-      let startIndex = Math.max(0, Math.round(startLine));
-
       /* We need to get the correct font size before this to measure characters */
       const charWidth = this.text.measure(context);
 
-      for (let i = startIndex; i < startIndex + maxLinesForCanvas; i++) {
+      const [start, end] = this.canvasStartAndEndIndex(context, lineHeight);
+      for (let i = start; i < end; i++) {
         const drawContext = {
           context,
           offsetY,
           lineHeight,
           charWidth,
+          scale: SCALE,
         };
 
         this.text.drawLine(drawContext, i + 1);
@@ -162,6 +128,30 @@ const minimapClass = ViewPlugin.fromClass(
       }
 
       context.restore();
+    }
+
+    private canvasStartAndEndIndex(
+      context: CanvasRenderingContext2D,
+      lineHeight: number
+    ) {
+      const lines = this.view.state.field(LinesState);
+      const maxLines = Math.min(
+        Math.round(context.canvas.height / (lineHeight / SCALE)),
+        lines.length
+      );
+
+      const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
+      const overScroll = scrollHeight - clientHeight;
+      const visibleRatio = overScroll > 0 ? scrollTop * (1 / overScroll) : 0;
+
+      // Using Math.max keeps us at 0 if the document doesn't overflow the height
+      const startIndex = Math.max(
+        0,
+        Math.round((lines.length - maxLines) * visibleRatio)
+      );
+      const endIndex = startIndex + maxLines;
+
+      return [startIndex, endIndex];
     }
 
     private updateBoxShadow() {
@@ -191,11 +181,10 @@ export function minimap(o: Options = {}): Extension {
   return [
     Theme,
     Config.of(o),
-
     LinesState,
 
-    /** TODO CLEAN UP BELOW */
-    [minimapClass],
-    Overlay(),
+    minimapClass, // TODO, maybe can codemirror-ify this one better
+
+    Overlay,
   ];
 }

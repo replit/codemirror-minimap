@@ -1,3 +1,4 @@
+import { EditorView, ViewUpdate } from "@codemirror/view";
 import {
   Diagnostic,
   forEachDiagnostic,
@@ -5,15 +6,10 @@ import {
 } from "@codemirror/lint";
 
 import { LineBasedState } from ".";
-import { DrawContext } from "./selections";
-import { EditorView, ViewUpdate } from "@codemirror/view";
-
+import { DrawContext } from "../types";
 import { Lines, LinesState } from "../LinesState";
 
 type Severity = Diagnostic["severity"];
-
-// TODO: Global config
-const SCALE = 3;
 
 export class DiagnosticState extends LineBasedState<Severity> {
   public constructor(view: EditorView) {
@@ -36,9 +32,12 @@ export class DiagnosticState extends LineBasedState<Severity> {
     }
 
     /* TODO handle folds changing */
+    const changedFolds = true;
+    if (changedFolds) {
+      return true;
+    }
 
-    // TODO: True until above todo is handled
-    return true;
+    return false;
   }
 
   public update(update: ViewUpdate) {
@@ -67,7 +66,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {
-    const { context, lineHeight, charWidth, offsetY } = ctx;
+    const { context, lineHeight, offsetY, scale } = ctx;
     const severity = this.get(lineNumber);
     if (!severity) {
       return;
@@ -79,7 +78,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
     context.rect(
       0,
       offsetY /* TODO Scaling causes anti-aliasing in rectangles */,
-      context.canvas.width * SCALE /* Why? */,
+      context.canvas.width * scale,
       lineHeight
     );
     context.fillStyle = this.color(severity);

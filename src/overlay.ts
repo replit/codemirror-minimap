@@ -1,6 +1,6 @@
-import { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Config, Options } from "./Config";
+import crelt from "crelt";
 
 /* TODO: Some kind of rendering config */
 const SCALE = 3;
@@ -45,17 +45,15 @@ const Theme = EditorView.theme({
 
 const OverlayView = ViewPlugin.fromClass(
   class {
-    private container: HTMLDivElement;
-    private dom: HTMLDivElement;
+    private container: HTMLElement;
+    private dom: HTMLElement;
+
     private _isDragging: boolean = false;
     private _dragStartY: number | undefined;
 
     public constructor(private view: EditorView) {
-      this.dom = document.createElement("div");
-      this.dom.classList.add("cm-minimap-overlay");
-
-      this.container = document.createElement("div");
-      this.container.classList.add("cm-minimap-overlay-container");
+      this.container = crelt("div", { class: "cm-minimap-overlay-container" });
+      this.dom = crelt("div", { class: "cm-minimap-overlay" });
       this.container.appendChild(this.dom);
 
       this.computeHeight();
@@ -98,11 +96,19 @@ const OverlayView = ViewPlugin.fromClass(
 
     public computeTop() {
       if (!this._isDragging) {
-        const top = currentTopFromScrollHeight(
-          this.view.dom.clientHeight,
-          this.view.scrollDOM.scrollTop,
-          this.view.scrollDOM.scrollHeight
-        );
+        const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
+
+        const maxScrollTop = scrollHeight - clientHeight;
+        const topForNonOverflowing = scrollTop / RATIO;
+
+        const height = clientHeight / RATIO;
+        const maxTop = clientHeight - height;
+        const scrollRatio = scrollTop / maxScrollTop;
+        const topForOverflowing = maxTop * scrollRatio;
+
+        // Use tildes to negate any `NaN`s
+        const top = Math.min(~~topForOverflowing, ~~topForNonOverflowing);
+
         this.dom.style.top = top + "px";
       }
     }
@@ -177,7 +183,6 @@ const OverlayView = ViewPlugin.fromClass(
       const canvasHeight = this.dom.getBoundingClientRect().height;
       const canvasAbsTop = this.dom.getBoundingClientRect().y;
       const canvasAbsBot = canvasAbsTop + canvasHeight;
-      const canvasRelTop = parseInt(this.dom.style.top);
       const canvasRelTopDouble = parseFloat(this.dom.style.top);
 
       const scrollPosition = this.view.scrollDOM.scrollTop;
@@ -211,7 +216,6 @@ const OverlayView = ViewPlugin.fromClass(
       const maxTopOverflowing = clientHeight - clientHeight / RATIO;
 
       const change = canvasRelTopDouble + deltaY;
-      // console.log("canvasrel", canvasRelTopDouble);
 
       /**
        * ScrollPosOverflowing is calculated by:
@@ -253,26 +257,4 @@ const OverlayView = ViewPlugin.fromClass(
   }
 );
 
-export function Overlay(): Extension {
-  return [Theme, OverlayView];
-}
-
-export function currentTopFromScrollHeight(
-  clientHeight: number,
-  scrollTop: number,
-  scrollHeight: number
-) {
-  const maxScrollTop = scrollHeight - clientHeight;
-
-  const topForNonOverflowing = scrollTop / RATIO;
-
-  const height = clientHeight / RATIO;
-  const maxTop = clientHeight - height;
-  const scrollRatio = scrollTop / maxScrollTop;
-  const topForOverflowing = maxTop * scrollRatio;
-
-  // Use tildes to negate any `NaN`s
-  const top = Math.min(~~topForOverflowing, ~~topForNonOverflowing);
-
-  return top;
-}
+export const Overlay = [Theme, OverlayView];
