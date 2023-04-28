@@ -5,9 +5,9 @@ import {
   setDiagnosticsEffect,
 } from "@codemirror/lint";
 
-import { LineBasedState } from ".";
-import { DrawContext } from "../types";
-import { Lines, LinesState } from "../LinesState";
+import { LineBasedState } from "./linebasedstate";
+import { DrawContext } from "./types";
+import { Lines, LinesState } from "./LinesState";
 
 type Severity = Diagnostic["severity"];
 

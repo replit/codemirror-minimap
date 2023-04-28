@@ -1,7 +1,7 @@
-import { LineBasedState } from ".";
+import { LineBasedState } from "./linebasedstate";
 import { EditorView, ViewUpdate } from "@codemirror/view";
-import { LinesState } from "../LinesState";
-import { DrawContext } from "../types";
+import { LinesState } from "./LinesState";
+import { DrawContext } from "./types";
 
 type Selection = { from: number; to: number; extends: boolean };
 type DrawInfo = { backgroundColor: string };

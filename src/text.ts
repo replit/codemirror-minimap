@@ -1,12 +1,12 @@
 import { EditorState, Text, SelectionRange } from "@codemirror/state";
-import { LineBasedState } from ".";
+import { LineBasedState } from "./linebasedstate";
 import { Highlighter, highlightTree } from "@lezer/highlight";
 import { ChangedRange, Tree, TreeFragment } from "@lezer/common";
 import { highlightingFor, language } from "@codemirror/language";
 import { EditorView, ViewUpdate } from "@codemirror/view";
-import { DrawContext } from "../types";
-import { Config, Options } from "../Config";
-import { LinesState } from "../LinesState";
+import { DrawContext } from "./types";
+import { Config, Options } from "./Config";
+import { LinesState } from "./LinesState";
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; fontSize: number };

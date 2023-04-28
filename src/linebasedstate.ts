@@ -1,5 +1,7 @@
 import { EditorView } from "@codemirror/view";
 
+// TODO: renamed this file because something's weird with codemirror build
+
 export abstract class LineBasedState<TValue> {
   protected map: Map<number, TValue>;
   protected view: EditorView;

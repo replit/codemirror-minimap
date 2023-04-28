@@ -2,9 +2,9 @@ import { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Overlay } from "./Overlay";
 import { Config, Options } from "./Config";
-import { DiagnosticState, diagnostics } from "./state/diagnostics";
-import { SelectionState, selections } from "./state/selections";
-import { TextState, text } from "./state/text";
+import { DiagnosticState, diagnostics } from "./diagnostics";
+import { SelectionState, selections } from "./selections";
+import { TextState, text } from "./text";
 import { LinesState } from "./LinesState";
 import crelt from "crelt";
 
