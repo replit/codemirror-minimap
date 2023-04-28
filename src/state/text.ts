@@ -5,7 +5,8 @@ import { ChangedRange, Tree, TreeFragment } from "@lezer/common";
 import { highlightingFor, language } from "@codemirror/language";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { DrawContext, RangesWithState } from "./selections";
-import { Config, config } from "../config";
+import { Config, Options } from "../Config";
+import { LinesState } from "../LinesState";
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; fontSize: number };
@@ -14,7 +15,7 @@ const SCALE = 3;
 
 export class TextState extends LineBasedState<Array<TagSpan>> {
   private _previousTree: Tree | undefined;
-  private _displayText: Required<Config>["displayText"];
+  private _displayText: Required<Options>["displayText"];
   private _fontInfoMap: Map<string, FontInfo> = new Map();
   private _themeClasses: string;
 
@@ -24,7 +25,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     this._themeClasses = view.dom.classList.value;
   }
 
-  public shouldUpdate(update: ViewUpdate) {
+  private shouldUpdate(update: ViewUpdate) {
     // If the doc changed
     if (update.docChanged) {
       console.log(update.docChanged);
@@ -32,7 +33,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     // If configuration settings changed
-    if (update.state.facet(config) !== update.startState.facet(config)) {
+    if (update.state.facet(Config) !== update.startState.facet(Config)) {
       return true;
     }
 
@@ -41,14 +42,16 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       return true;
     }
 
-    return false;
+    /* TODO handle folds changing */
+
+    // TODO: True until above todo is handled
+    return true;
   }
 
-  public update({ lines, update }: RangesWithState) {
+  public update(update: ViewUpdate) {
     if (!this.shouldUpdate(update)) {
       return;
     }
-    // console.log("Text Update");
     this.map.clear();
 
     const parser = update.state.facet(language)?.parser;
@@ -58,7 +61,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     /* Store display text setting for rendering */
-    this._displayText = update.state.facet(config).displayText;
+    this._displayText = update.state.facet(Config).displayText;
 
     /* If class list has changed, clear and recalculate the font info map */
     if (this._themeClasses !== this.view.dom.classList.value) {
@@ -92,7 +95,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       style: (tags) => highlightingFor(update.state, tags),
     };
 
-    for (const [index, line] of lines.entries()) {
+    for (const [index, line] of update.state.field(LinesState).entries()) {
       const spans: Array<TagSpan> = [];
 
       for (const span of line) {
@@ -125,7 +128,10 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
         // If there are remaining spans that did not get highlighted, we append them here
         if (position !== span.to) {
-          spans.push({ text: doc.sliceString(position, span.to), tags: "" });
+          spans.push({
+            text: doc.sliceString(position, span.to),
+            tags: "",
+          });
         }
       }
 
@@ -133,6 +139,14 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       const lineNumber = index + 1;
       this.map.set(lineNumber, spans);
     }
+  }
+
+  public measure(context: CanvasRenderingContext2D) {
+    const info = this.getFontInfo("");
+    context.textBaseline = "ideographic";
+    context.fillStyle = info.color;
+    context.font = info.font;
+    return context.measureText("_").width;
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {

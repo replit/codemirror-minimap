@@ -1,6 +1,6 @@
 import { Facet, combineConfig } from "@codemirror/state";
 
-type Config = {
+type Options = {
   /**
    * Determines how to render text. Defaults to `characters`.
    */
@@ -13,7 +13,7 @@ type Config = {
   showOverlay?: "always" | "mouse-over";
 };
 
-const config = Facet.define<Config, Required<Config>>({
+const Config = Facet.define<Options, Required<Options>>({
   combine: (configs) => {
     return combineConfig(configs, {
       displayText: "characters",
@@ -22,4 +22,4 @@ const config = Facet.define<Config, Required<Config>>({
   },
 });
 
-export { Config, config };
+export { Config, Options };

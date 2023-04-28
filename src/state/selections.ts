@@ -1,6 +1,7 @@
 import { LineBasedState } from ".";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { LineData } from "../index";
+import { LinesState } from "../LinesState";
 
 type Selection = { from: number; to: number; extends: boolean };
 type DrawInfo = { backgroundColor: string };
@@ -23,52 +24,116 @@ const SCALE = 3; // TODO global config
 
 export class SelectionState extends LineBasedState<Array<Selection>> {
   private _drawInfo: DrawInfo | undefined;
+  private _themeClasses: string;
 
   public constructor(view: EditorView) {
     super(view);
+
     this.getDrawInfo();
+    this._themeClasses = view.dom.classList.value;
   }
 
-  public update({ lines, update }: RangesWithState) {
+  private shouldUpdate(update: ViewUpdate) {
+    // If the doc changed
+    if (update.docChanged) {
+      return true;
+    }
+
+    // If the selection changed
+    if (update.selectionSet) {
+      return true;
+    }
+
+    // If the theme changed
+    if (this._themeClasses !== this.view.dom.classList.value) {
+      return true;
+    }
+
+    /* TODO handle folds changing */
+
+    // TODO: True until above todo is handled
+    return true;
+  }
+
+  public update(update: ViewUpdate) {
+    if (!this.shouldUpdate(update)) {
+      return;
+    }
     this.map.clear();
 
-    let lineIndex = 0;
-    for (const range of update.state.selection.ranges) {
-      // Ignore selections of length 0
-      if (range.from === range.to) {
+    /* If class list has changed, clear and recalculate the selection style */
+    if (this._themeClasses !== this.view.dom.classList.value) {
+      this._drawInfo = undefined;
+      this._themeClasses = this.view.dom.classList.value;
+    }
+
+    const { ranges } = update.state.selection;
+
+    let selectionIndex = 0;
+    for (const [index, line] of update.state.field(LinesState).entries()) {
+      const selections: Array<Selection> = [];
+
+      for (const span of line) {
+        do {
+          // We've already processed all selections
+          if (selectionIndex >= ranges.length) {
+            continue;
+          }
+
+          // The next selection begins after this span
+          if (span.to < ranges[selectionIndex].from) {
+            continue;
+          }
+
+          // Ignore 0-length selections
+          if (ranges[selectionIndex].from === ranges[selectionIndex].to) {
+            selectionIndex++;
+            continue;
+          }
+
+          // Build the selection for the current span
+          const range = ranges[selectionIndex];
+          const selection = {
+            from: Math.max(span.from, range.from) - span.from,
+            to: Math.min(span.to, range.to) - span.from,
+            extends: range.to > span.to,
+          };
+
+          const lastSelection = selections.slice(-1)[0];
+          if (lastSelection && lastSelection.to === selection.from) {
+            // The selection in this span may just be a continuation of the
+            // selection in the previous span
+            selections[selections.length - 1] = {
+              ...lastSelection,
+              to: selection.to,
+              extends: selection.extends,
+            };
+          } else {
+            // Otherwise, it's a new selection and we should push it onto the stack
+            selections.push(selection);
+          }
+
+          // If the selection doesn't end in this span, break out of the loop
+          if (selection.extends) {
+            break;
+          }
+
+          // Otherwise, move to the next selection
+          selectionIndex++;
+        } while (
+          selectionIndex < ranges.length &&
+          span.to >= ranges[selectionIndex].from
+        );
+      }
+
+      // If we don't have any selections on this line, we don't need to store anything
+      if (selections.length === 0) {
         continue;
       }
 
-      // Iterate through lines until we reach the line where the selection begins
-      while (lineIndex < lines.length && lines[lineIndex].to < range.from) {
-        lineIndex++;
-      }
-
-      do {
-        // Create the `Selection` instance
-        const line = lines[lineIndex];
-        const selection = {
-          from: Math.max(line.from, range.from) - line.from,
-          to: Math.min(line.to, range.to) - line.from,
-          extends: range.to > line.to,
-        };
-
-        // Lines are indexed beginning at 1 instead of 0
-        const lineNumber = lineIndex + 1;
-
-        // Add the selection to the line map
-        const previous = this.map.get(lineNumber);
-        this.map.set(
-          lineNumber,
-          previous ? previous.concat(selection) : [selection]
-        );
-
-        if (!selection.extends) {
-          // The selection finished on our current line
-          break;
-        }
-        lineIndex++;
-      } while (lineIndex < lines.length);
+      // Lines are indexed beginning at 1 instead of 0
+      const lineNumber = index + 1;
+      this.map.set(lineNumber, selections);
     }
   }
 
@@ -87,7 +152,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
 
       if (selection.extends) {
         // Draw the full width rectangle in the background
-        context.globalAlpha = 0.5;
+        context.globalAlpha = 0.65;
         context.beginPath();
         context.rect(offsetX, offsetY, fullWidth, lineHeight);
         context.fillStyle = this.getDrawInfo().backgroundColor;
@@ -104,26 +169,22 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
   }
 
   private getDrawInfo(): DrawInfo {
-    let result: DrawInfo;
     if (this._drawInfo) {
-      result = this._drawInfo;
-      // TODO: We should be exiting early here...
-    } else {
-      // Default to transparent
-      result = { backgroundColor: "rgba(0, 0, 0, 0)" };
+      return this._drawInfo;
     }
 
-    // Query for existing selection
-    const selection = this.view.dom.querySelector(".cm-selectionBackground");
+    // Create a mock selection
+    const mockToken = document.createElement("span");
+    mockToken.setAttribute("class", "cm-selectionBackground");
+    this.view.dom.appendChild(mockToken);
 
     // Get style information
-    if (selection) {
-      const style = window.getComputedStyle(selection);
-      result = { backgroundColor: style.backgroundColor };
-    }
+    const style = window.getComputedStyle(mockToken);
+    const result = { backgroundColor: style.backgroundColor };
 
     // Store the result for the next update
     this._drawInfo = result;
+    this.view.dom.removeChild(mockToken);
 
     return result;
   }
