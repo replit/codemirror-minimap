@@ -1,6 +1,6 @@
 # codemirror-minimap
 
 ```
-Develop: pnpm dev
-Build: pnpm build
+Develop: yarn dev
+Build: yarn build
 ```
