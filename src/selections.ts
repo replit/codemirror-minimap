@@ -60,6 +60,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
     for (const [index, line] of update.state.field(LinesState).entries()) {
       const selections: Array<Selection> = [];
 
+      let offset = 0;
       for (const span of line) {
         do {
           // We've already processed all selections
@@ -81,8 +82,8 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
           // Build the selection for the current span
           const range = ranges[selectionIndex];
           const selection = {
-            from: Math.max(span.from, range.from) - span.from,
-            to: Math.min(span.to, range.to) - span.from,
+            from: offset + Math.max(span.from, range.from) - span.from,
+            to: offset + Math.min(span.to, range.to) - span.from,
             extends: range.to > span.to,
           };
 
@@ -90,13 +91,23 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
           if (lastSelection && lastSelection.to === selection.from) {
             // The selection in this span may just be a continuation of the
             // selection in the previous span
+
+            // Adjust `to` depending on if we're in a folded span
+            let { to } = selection;
+            if (span.folded && selection.extends) {
+              to = selection.from + 1;
+            } else if (span.folded && !selection.extends) {
+              to = lastSelection.to;
+            }
+
             selections[selections.length - 1] = {
               ...lastSelection,
-              to: selection.to,
+              to,
               extends: selection.extends,
             };
-          } else {
-            // Otherwise, it's a new selection and we should push it onto the stack
+          } else if (!span.folded) {
+            // It's a new selection; if we're not in a folded span we
+            // should push it onto the stack
             selections.push(selection);
           }
 
@@ -111,6 +122,8 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
           selectionIndex < ranges.length &&
           span.to >= ranges[selectionIndex].from
         );
+
+        offset += span.folded ? 1 : span.to - span.from;
       }
 
       // If we don't have any selections on this line, we don't need to store anything
@@ -130,6 +143,8 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
     if (!selections) {
       return;
     }
+
+    console.log(lineNumber, selections);
 
     // TODO: Collapsed selections don't work
     for (const selection of selections) {

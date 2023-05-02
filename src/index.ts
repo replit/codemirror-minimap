@@ -30,6 +30,9 @@ const Theme = EditorView.theme({
       display: "block",
     },
   },
+  "& .cm-minimap-box-shadow": {
+    boxShadow: "12px 0px 20px 5px #6c6c6c",
+  },
 });
 
 const CANVAS_MAX_WIDTH = 120;
@@ -158,9 +161,9 @@ const minimapClass = ViewPlugin.fromClass(
       const { clientWidth, scrollWidth, scrollLeft } = this.view.scrollDOM;
 
       if (clientWidth + scrollLeft < scrollWidth) {
-        this.canvas.style.boxShadow = "12px 0px 20px 5px #6c6c6c";
+        this.canvas.classList.add("cm-minimap-box-shadow");
       } else {
-        this.canvas.style.boxShadow = "inherit";
+        this.canvas.classList.remove("cm-minimap-box-shadow");
       }
     }
 

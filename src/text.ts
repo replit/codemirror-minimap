@@ -26,7 +26,6 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
   private shouldUpdate(update: ViewUpdate) {
     // If the doc changed
     if (update.docChanged) {
-      console.log(update.docChanged);
       return true;
     }
 
