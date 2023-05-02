@@ -1,6 +1,6 @@
 {
   "name": "@replit/codemirror-minimap",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Brady Madden",
     "email": "brady@repl.it"
@@ -18,7 +18,11 @@
   "scripts": {
     "dev": "vite ./dev",
     "build": "cm-buildhelper ./src/index.ts",
+    "publish": "npm publish",
     "test": "cm-runtests"
+  },
+  "dependencies": {
+    "crelt": "^1.0.5"
   },
   "peerDependencies": {
     "@codemirror/language": "^6.0.0",
@@ -26,8 +30,7 @@
     "@codemirror/state": "^6.2.0",
     "@codemirror/view": "^6.0.0",
     "@lezer/common": "^1.0.2",
-    "@lezer/highlight": "^1.1.4",
-    "crelt": "^1.0.5"
+    "@lezer/highlight": "^1.1.4"
   },
   "devDependencies": {
     "@codemirror/buildhelper": "^0.1.16",
