@@ -1,0 +1,12 @@
+/dev
+/src
+/node_modules
+
+.cache
+.config
+.github
+.replit
+.upm
+.vscode
+
+replit.nix
