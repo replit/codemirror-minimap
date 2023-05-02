@@ -37,7 +37,6 @@ const Theme = EditorView.theme({
 
 const CANVAS_MAX_WIDTH = 120;
 const SCALE = 3;
-const RATIO = SCALE * 2 * 1.4;
 
 const minimapClass = ViewPlugin.fromClass(
   class {
@@ -108,10 +107,8 @@ const minimapClass = ViewPlugin.fromClass(
       const { top: paddingTop } = this.view.documentPadding;
       let offsetY = paddingTop;
 
-      let lineHeight = 13; /* HACKING THIS IN */ /* We should be incrementing this within the drawer, I guess? */ /* Or just computing it globally */
-
-      /* We need to get the correct font size before this to measure characters */
-      const charWidth = this.text.measure(context);
+      /* We need to get the correct font dimensions before this to measure characters */
+      const { charWidth, lineHeight } = this.text.measure(context);
 
       const [start, end] = this.canvasStartAndEndIndex(context, lineHeight);
       for (let i = start; i < end; i++) {

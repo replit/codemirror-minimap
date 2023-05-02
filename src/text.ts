@@ -6,7 +6,7 @@ import { highlightingFor, language } from "@codemirror/language";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { DrawContext } from "./types";
 import { Config, Options } from "./Config";
-import { LinesState } from "./LinesState";
+import { LinesState, foldsChanged } from "./LinesState";
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; fontSize: number };
@@ -39,9 +39,8 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       return true;
     }
 
-    /* TODO handle folds changing */
-    const changedFolds = true;
-    if (changedFolds) {
+    // If the folds changed
+    if (foldsChanged(update)) {
       return true;
     }
 
@@ -53,12 +52,6 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       return;
     }
     this.map.clear();
-
-    const parser = update.state.facet(language)?.parser;
-    if (!parser) {
-      console.log("TODO: Handle no parser....");
-      return;
-    }
 
     /* Store display text setting for rendering */
     this._displayText = update.state.facet(Config).displayText;
@@ -87,7 +80,10 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
     /* Parse the document into a lezer tree */
     const doc = Text.of(update.state.doc.toString().split("\n"));
-    const tree = parser.parse(doc.toString(), treeFragments);
+    const parser = update.state.facet(language)?.parser;
+    const tree = parser
+      ? parser.parse(doc.toString(), treeFragments)
+      : undefined;
     this._previousTree = tree;
 
     /* Highlight the document, and store the text and tags for each line */
@@ -107,6 +103,12 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
         // Append a placeholder for a folded span
         if (span.folded) {
           spans.push({ text: "…", tags: "" });
+          continue;
+        }
+
+        // If we don't have syntax highlighting, just push the whole span unstyled
+        if (!tree) {
+          spans.push({ text: doc.sliceString(span.from, span.to), tags: "" });
           continue;
         }
 
@@ -141,12 +143,20 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
   }
 
-  public measure(context: CanvasRenderingContext2D) {
+  public measure(context: CanvasRenderingContext2D): {
+    charWidth: number;
+    lineHeight: number;
+  } {
     const info = this.getFontInfo("");
+
     context.textBaseline = "ideographic";
     context.fillStyle = info.color;
     context.font = info.font;
-    return context.measureText("_").width;
+
+    return {
+      charWidth: context.measureText("_").width,
+      lineHeight: info.fontSize,
+    };
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {

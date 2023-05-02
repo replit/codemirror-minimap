@@ -7,7 +7,7 @@ import {
 
 import { LineBasedState } from "./linebasedstate";
 import { DrawContext } from "./types";
-import { Lines, LinesState } from "./LinesState";
+import { Lines, LinesState, foldsChanged } from "./LinesState";
 
 type Severity = Diagnostic["severity"];
 
@@ -31,9 +31,8 @@ export class DiagnosticState extends LineBasedState<Severity> {
       }
     }
 
-    /* TODO handle folds changing */
-    const changedFolds = true;
-    if (changedFolds) {
+    // If the folds changed
+    if (foldsChanged(update)) {
       return true;
     }
 

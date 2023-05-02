@@ -1,6 +1,6 @@
 import { LineBasedState } from "./linebasedstate";
 import { EditorView, ViewUpdate } from "@codemirror/view";
-import { LinesState } from "./LinesState";
+import { LinesState, foldsChanged } from "./LinesState";
 import { DrawContext } from "./types";
 
 type Selection = { from: number; to: number; extends: boolean };
@@ -33,9 +33,8 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
       return true;
     }
 
-    /* TODO handle folds changing */
-    const changedFolds = true;
-    if (changedFolds) {
+    // If the folds changed
+    if (foldsChanged(update)) {
       return true;
     }
 
@@ -144,9 +143,6 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
       return;
     }
 
-    console.log(lineNumber, selections);
-
-    // TODO: Collapsed selections don't work
     for (const selection of selections) {
       const offsetX = selection.from * charWidth;
       const textWidth = (selection.to - selection.from) * charWidth;
