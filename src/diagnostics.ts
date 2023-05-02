@@ -124,15 +124,24 @@ export class DiagnosticState extends LineBasedState<Severity> {
       : "#999";
   }
 
-  /**
-   * Sorts severity from most to least severe, where
-   * error > warning > info
-   */
+  /** Sorts severity from most to least severe */
   private sort(a: Severity, b: Severity) {
-    return (
-      (b === "error" ? 3 : b === "warning" ? 2 : 1) -
-      (a === "error" ? 3 : a === "warning" ? 2 : 1)
-    );
+    return this.score(b) - this.score(a);
+  }
+
+  /** Assigns a score to severity, with most severe being the highest */
+  private score(s: Severity) {
+    switch (s) {
+      case "error": {
+        return 3;
+      }
+      case "warning": {
+        return 2;
+      }
+      default: {
+        return 1;
+      }
+    }
   }
 }
 
