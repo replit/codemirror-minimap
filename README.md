@@ -1,15 +1,11 @@
 # Minimap for Codemirror 6
 
-<div style="display:flex;column-gap:4px">
-  <span>
-        <a href="https://replit.com/github/replit/codemirror-minimap" title="Run on Replit badge">
-            <img src="https://replit.com/badge/github/replit/codemirror-minimap" alt="Run on Replit badge"  />
-        </a>
+<div style="display:flex">
+    <span style="margin-right:4px">
+        <a href="https://replit.com/github/replit/codemirror-minimap" title="Run on Replit badge"><img src="https://replit.com/badge/github/replit/codemirror-minimap" alt="Run on Replit badge" /></a>
     </span>
     <span>
-        <a href="https://www.npmjs.com/package/@replit/codemirror-minimap" title="NPM version badge">
-            <img src="https://img.shields.io/npm/v/@replit/codemirror-minimap?style=flat&color=orange" height="32" alt="NPM version badge" />
-        </a>
+        <a href="https://www.npmjs.com/package/@replit/codemirror-minimap" title="NPM version badge"><img src="https://img.shields.io/npm/v/@replit/codemirror-minimap?style=flat&color=orange" height="32" alt="NPM version badge" /></a>
     </span>
 </div>
 
