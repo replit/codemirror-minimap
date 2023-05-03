@@ -92,8 +92,9 @@ const minimapClass = ViewPlugin.fromClass(
         this.canvas.width = CANVAS_MAX_WIDTH * 2;
       }
 
-      this.canvas.height = this.inner.clientHeight * 2;
-      this.canvas.style.height = this.inner.clientHeight + "px";
+      this.inner.style.minHeight = this.view.dom.clientHeight + "px";
+      this.canvas.height = this.view.dom.clientHeight * 2;
+      this.canvas.style.height = this.view.dom.clientHeight + "px";
 
       const context = this.canvas.getContext("2d");
       if (!context) {

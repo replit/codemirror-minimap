@@ -57,7 +57,9 @@ export class DiagnosticState extends LineBasedState<Severity> {
       for (let i = lineStart; i <= lineEnd; i++) {
         const previous = this.get(i);
         if (previous) {
-          severity = [severity, previous].sort(this.sort).slice(0, 1)[0];
+          severity = [severity, previous]
+            .sort(this.sort.bind(this))
+            .slice(0, 1)[0];
         }
         this.set(i, severity);
       }
