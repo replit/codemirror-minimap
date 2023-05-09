@@ -1,6 +1,7 @@
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import {
   Diagnostic,
+  diagnosticCount,
   forEachDiagnostic,
   setDiagnosticsEffect,
 } from "@codemirror/lint";
@@ -12,6 +13,8 @@ import { Lines, LinesState, foldsChanged } from "./LinesState";
 type Severity = Diagnostic["severity"];
 
 export class DiagnosticState extends LineBasedState<Severity> {
+  private count: number | undefined = undefined;
+
   public constructor(view: EditorView) {
     super(view);
   }
@@ -36,6 +39,11 @@ export class DiagnosticState extends LineBasedState<Severity> {
       return true;
     }
 
+    // If the minimap was previously hidden
+    if (this.count === undefined) {
+      return true;
+    }
+
     return false;
   }
 
@@ -46,6 +54,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
 
     this.map.clear();
     const lines = update.state.field(LinesState);
+    this.count = diagnosticCount(update.state);
 
     forEachDiagnostic(update.state, (diagnostic, from, to) => {
       // Find the start and end lines for the diagnostic
