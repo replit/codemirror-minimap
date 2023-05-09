@@ -159,6 +159,10 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     };
   }
 
+  public beforeDraw() {
+    this._fontInfoMap.clear();
+  }
+
   public drawLine(ctx: DrawContext, lineNumber: number) {
     const line = this.get(lineNumber);
     if (!line) {

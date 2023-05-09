@@ -88,6 +88,8 @@ const minimapClass = ViewPlugin.fromClass(
     }
 
     render() {
+      this.text.beforeDraw();
+
       const innerX = this.view.contentDOM.clientWidth;
       this.updateBoxShadow();
 
