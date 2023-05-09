@@ -71,6 +71,13 @@ const minimapClass = ViewPlugin.fromClass(
         this.dom,
         this.view.contentDOM.nextSibling
       );
+
+      for (const key in this.view.state.facet(Config).eventHandlers) {
+        const handler = this.view.state.facet(Config).eventHandlers[key];
+        if (handler) {
+          this.dom.addEventListener(key, (e) => handler(e, this.view));
+        }
+      }
     }
 
     update(update: ViewUpdate) {
