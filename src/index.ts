@@ -1,7 +1,7 @@
 import { Extension } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Overlay } from "./Overlay";
-import { Config, Options } from "./Config";
+import { Config, Options, Scale } from "./Config";
 import { DiagnosticState, diagnostics } from "./diagnostics";
 import { SelectionState, selections } from "./selections";
 import { TextState, text } from "./text";
@@ -37,12 +37,7 @@ const Theme = EditorView.theme({
 });
 
 const MAX_WIDTH = 120;
-const WIDTH_MULTIPLIER = 6;
-
-const CANVAS_MULTIPLIER = 1;
-
-// https://stackoverflow.com/questions/6081483/maximum-size-of-a-canvas-element
-const MAX_DIMENSION = 16384;
+const WIDTH_RATIO = 6;
 
 const minimapClass = ViewPlugin.fromClass(
   class {
@@ -91,11 +86,11 @@ const minimapClass = ViewPlugin.fromClass(
 
     getWidth(): number {
       const editorWidth = this.view.dom.clientWidth;
-      if (editorWidth <= MAX_WIDTH * WIDTH_MULTIPLIER) {
-        const ratio = editorWidth / (MAX_WIDTH * WIDTH_MULTIPLIER);
-        return MAX_WIDTH * ratio * CANVAS_MULTIPLIER;
+      if (editorWidth <= MAX_WIDTH * WIDTH_RATIO) {
+        const ratio = editorWidth / (MAX_WIDTH * WIDTH_RATIO);
+        return MAX_WIDTH * ratio;
       }
-      return MAX_WIDTH * CANVAS_MULTIPLIER;
+      return MAX_WIDTH;
     }
 
     render() {
@@ -105,11 +100,11 @@ const minimapClass = ViewPlugin.fromClass(
 
       this.dom.style.width = this.getWidth() + "px";
       this.canvas.style.maxWidth = this.getWidth() + "px";
-      this.canvas.width = this.getWidth();
+      this.canvas.width = this.getWidth() * Scale.PixelMultiplier;
 
       const domHeight = this.view.dom.getBoundingClientRect().height;
       this.inner.style.minHeight = domHeight + "px";
-      this.canvas.height = domHeight * CANVAS_MULTIPLIER;
+      this.canvas.height = domHeight * Scale.PixelMultiplier;
       this.canvas.style.height = domHeight + "px";
 
       const context = this.canvas.getContext("2d");
@@ -152,15 +147,16 @@ const minimapClass = ViewPlugin.fromClass(
       context: CanvasRenderingContext2D,
       lineHeight: number
     ) {
-      const { top: pTop, bottom: pBottom } = this.view.documentPadding;
+      let { top: pTop, bottom: pBottom } = this.view.documentPadding;
+      (pTop /= Scale.SizeRatio), (pBottom /= Scale.SizeRatio);
 
+      const canvasHeight = context.canvas.height;
       const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
       let scrollPercent = scrollTop / (scrollHeight - clientHeight);
       if (isNaN(scrollPercent)) {
         scrollPercent = 0;
       }
 
-      const canvasHeight = context.canvas.height;
       const lineCount = this.view.state.field(LinesState).length;
       const totalHeight = pTop + pBottom + lineCount * lineHeight;
 

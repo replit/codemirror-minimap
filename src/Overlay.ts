@@ -1,9 +1,6 @@
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { Config, Options } from "./Config";
+import { Config, Scale } from "./Config";
 import crelt from "crelt";
-
-/* TODO: Some kind of rendering config */
-const SCALE = 10;
 
 const Theme = EditorView.theme({
   ".cm-minimap-overlay-container": {
@@ -44,6 +41,8 @@ const Theme = EditorView.theme({
     },
   },
 });
+
+const SCALE = Scale.PixelMultiplier * Scale.SizeRatio;
 
 const OverlayView = ViewPlugin.fromClass(
   class {
@@ -208,7 +207,6 @@ const OverlayView = ViewPlugin.fromClass(
       }
 
       // Set view scroll directly
-
       const scrollHeight = this.view.scrollDOM.scrollHeight;
       const clientHeight = this.view.scrollDOM.clientHeight;
 

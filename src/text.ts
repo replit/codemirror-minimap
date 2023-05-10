@@ -5,7 +5,7 @@ import { ChangedRange, Tree, TreeFragment } from "@lezer/common";
 import { highlightingFor, language } from "@codemirror/language";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { DrawContext } from "./types";
-import { Config, Options } from "./Config";
+import { Config, Options, Scale } from "./Config";
 import { LinesState, foldsChanged } from "./LinesState";
 
 type TagSpan = { text: string; tags: string };
@@ -198,7 +198,8 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
             const spanOffsetX = start.index * charWidth;
 
             const width = (nonWhitespace.lastIndex - start.index) * charWidth;
-            const height = lineHeight - 2; /* 2px buffer between lines */
+            const height =
+              lineHeight - 2 / Scale.SizeRatio; /* 2px buffer between lines */
 
             context.fillStyle = info.color;
             context.globalAlpha = 0.65; // Make the blocks a bit faded
@@ -227,11 +228,10 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
     // Get style information and store it
     const style = window.getComputedStyle(mockToken);
-    const lineHeight = parseFloat(style.lineHeight);
-    const fontSize = Math.floor(lineHeight); // Round to nearest pixel
+    const lineHeight = parseFloat(style.lineHeight) / Scale.SizeRatio;
     const result = {
       color: style.color,
-      font: `${style.fontStyle} ${style.fontWeight} ${fontSize}px ${style.fontFamily}`,
+      font: `${style.fontStyle} ${style.fontWeight} ${lineHeight}px ${style.fontFamily}`,
       lineHeight,
     };
     this._fontInfoMap.set(tags, result);

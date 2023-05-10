@@ -36,4 +36,11 @@ const Config = Facet.define<Options, Required<Options>>({
   },
 });
 
-export { Config, Options };
+const Scale = {
+  // Multiply the number of canvas pixels
+  PixelMultiplier: 2,
+  // Downscale the editor contents by this ratio
+  SizeRatio: 4,
+};
+
+export { Config, Options, Scale };
