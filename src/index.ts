@@ -36,8 +36,10 @@ const Theme = EditorView.theme({
   },
 });
 
-const CANVAS_MAX_WIDTH = 120;
-const CANVAS_MULTIPLIER = 10;
+const MAX_WIDTH = 120;
+const WIDTH_MULTIPLIER = 6;
+
+const CANVAS_MULTIPLIER = 1;
 
 // https://stackoverflow.com/questions/6081483/maximum-size-of-a-canvas-element
 const MAX_DIMENSION = 16384;
@@ -62,12 +64,8 @@ const minimapClass = ViewPlugin.fromClass(
       this.diagnostic = diagnostics(view);
 
       this.dom = crelt("div", { class: "cm-gutters cm-minimap-gutter" });
-      this.dom.style.width = CANVAS_MAX_WIDTH + "px";
-
       this.inner = crelt("div", { class: "cm-minimap-inner" });
-
       this.canvas = crelt("canvas") as HTMLCanvasElement;
-      this.canvas.style.maxWidth = CANVAS_MAX_WIDTH + "px";
 
       this.inner.appendChild(this.canvas);
       this.dom.appendChild(this.inner);
@@ -92,12 +90,12 @@ const minimapClass = ViewPlugin.fromClass(
     }
 
     getWidth(): number {
-      const innerX = this.view.contentDOM.clientWidth;
-      if (innerX <= CANVAS_MAX_WIDTH) {
-        const ratio = innerX / CANVAS_MAX_WIDTH;
-        return CANVAS_MAX_WIDTH * ratio * CANVAS_MULTIPLIER;
+      const editorWidth = this.view.dom.clientWidth;
+      if (editorWidth <= MAX_WIDTH * WIDTH_MULTIPLIER) {
+        const ratio = editorWidth / (MAX_WIDTH * WIDTH_MULTIPLIER);
+        return MAX_WIDTH * ratio * CANVAS_MULTIPLIER;
       }
-      return CANVAS_MAX_WIDTH * CANVAS_MULTIPLIER;
+      return MAX_WIDTH * CANVAS_MULTIPLIER;
     }
 
     render() {
@@ -105,6 +103,8 @@ const minimapClass = ViewPlugin.fromClass(
 
       this.updateBoxShadow();
 
+      this.dom.style.width = this.getWidth() + "px";
+      this.canvas.style.maxWidth = this.getWidth() + "px";
       this.canvas.width = this.getWidth();
 
       const domHeight = this.view.dom.getBoundingClientRect().height;
