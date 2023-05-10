@@ -115,16 +115,18 @@ const minimapClass = ViewPlugin.fromClass(
 
       context.clearRect(0, 0, this.canvas.width, this.canvas.height);
 
-      context.scale(1 / SCALE, 1 / SCALE);
-
-      const { top: paddingTop } = this.view.documentPadding;
-      let offsetY = paddingTop;
-
       /* We need to get the correct font dimensions before this to measure characters */
       const { charWidth, lineHeight } = this.text.measure(context);
 
-      const [start, end] = this.canvasStartAndEndIndex(context, lineHeight);
-      for (let i = start; i < end; i++) {
+      let { startIndex, endIndex, offsetY } = this.canvasStartAndEndIndex(
+        context,
+        lineHeight
+      );
+
+      for (let i = startIndex; i < endIndex; i++) {
+        const lines = this.view.state.field(LinesState);
+        if (i >= lines.length) break;
+
         const drawContext = {
           context,
           offsetY,
@@ -146,24 +148,32 @@ const minimapClass = ViewPlugin.fromClass(
       context: CanvasRenderingContext2D,
       lineHeight: number
     ) {
-      const lines = this.view.state.field(LinesState);
-      const maxLines = Math.min(
-        Math.round(context.canvas.height / (lineHeight / SCALE)),
-        lines.length
-      );
+      const { top: pTop, bottom: pBottom } = this.view.documentPadding;
 
       const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
-      const overScroll = scrollHeight - clientHeight;
-      const visibleRatio = overScroll > 0 ? scrollTop * (1 / overScroll) : 0;
+      let scrollPercent = scrollTop / (scrollHeight - clientHeight);
+      if (isNaN(scrollPercent)) {
+        scrollPercent = 0;
+      }
 
-      // Using Math.max keeps us at 0 if the document doesn't overflow the height
-      const startIndex = Math.max(
+      const canvasHeight = context.canvas.height;
+      const lineCount = this.view.state.field(LinesState).length;
+      const totalHeight = pTop + pBottom + lineCount * lineHeight;
+
+      const canvasTop = Math.max(
         0,
-        Math.round((lines.length - maxLines) * visibleRatio)
+        scrollPercent * (totalHeight - canvasHeight)
       );
-      const endIndex = startIndex + maxLines;
+      const offsetY = Math.max(0, pTop - canvasTop);
 
-      return [startIndex, endIndex];
+      const startIndex = Math.round(Math.max(0, canvasTop - pTop) / lineHeight);
+      const spaceForLines = Math.round((canvasHeight - offsetY) / lineHeight);
+
+      return {
+        startIndex,
+        endIndex: Math.max(startIndex + spaceForLines, lineCount),
+        offsetY,
+      };
     }
 
     private updateBoxShadow() {
