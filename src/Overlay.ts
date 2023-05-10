@@ -55,9 +55,6 @@ const OverlayView = ViewPlugin.fromClass(
       this.dom = crelt("div", { class: "cm-minimap-overlay" });
       this.container.appendChild(this.dom);
 
-      this.computeHeight();
-      this.computeTop();
-
       // Attach event listeners for overlay
       this.container.addEventListener("mousedown", this.onMouseDown.bind(this));
       window.addEventListener("mouseup", this.onMouseUp.bind(this));
@@ -105,9 +102,7 @@ const OverlayView = ViewPlugin.fromClass(
         const scrollRatio = scrollTop / maxScrollTop;
         const topForOverflowing = maxTop * scrollRatio;
 
-        // Use tildes to negate any `NaN`s
-        const top = Math.min(~~topForOverflowing, ~~topForNonOverflowing);
-
+        const top = Math.min(topForOverflowing, topForNonOverflowing);
         this.dom.style.top = top + "px";
       }
     }
