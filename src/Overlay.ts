@@ -19,6 +19,9 @@ const Theme = EditorView.theme({
       opacity: 1,
       transition: "visibility 0s linear 0ms, opacity 300ms",
     },
+    "&.cm-minimap-overlay-off": {
+      display: "none",
+    },
     "& .cm-minimap-overlay": {
       background: "rgb(121, 121, 121)",
       opacity: "0.2",
@@ -67,17 +70,11 @@ const OverlayView = ViewPlugin.fromClass(
       }
 
       // Initially set overlay configuration styles
-      const { showOverlay } = view.state.facet(Config);
-      this.setShowOverlay(showOverlay);
+      this.computeShowOverlay();
     }
 
     update(update: ViewUpdate) {
-      const { showOverlay } = update.state.facet(Config);
-      const { showOverlay: prevShowOverlay } = update.startState.facet(Config);
-
-      if (showOverlay !== prevShowOverlay) {
-        this.setShowOverlay(showOverlay);
-      }
+      this.computeShowOverlay();
 
       if (update.geometryChanged) {
         this.computeHeight();
@@ -107,11 +104,20 @@ const OverlayView = ViewPlugin.fromClass(
       }
     }
 
-    public setShowOverlay(showOverlay: Required<Options>["showOverlay"]) {
+    public computeShowOverlay() {
+      const { showOverlay } = this.view.state.facet(Config);
+
       if (showOverlay === "mouse-over") {
         this.container.classList.add("cm-minimap-overlay-mouse-over");
       } else {
         this.container.classList.remove("cm-minimap-overlay-mouse-over");
+      }
+
+      const { clientHeight, scrollHeight } = this.view.scrollDOM;
+      if (clientHeight === scrollHeight) {
+        this.container.classList.add("cm-minimap-overlay-off");
+      } else {
+        this.container.classList.remove("cm-minimap-overlay-off");
       }
     }
 
