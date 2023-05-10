@@ -9,7 +9,7 @@ import { Config, Options } from "./Config";
 import { LinesState, foldsChanged } from "./LinesState";
 
 type TagSpan = { text: string; tags: string };
-type FontInfo = { color: string; font: string; fontSize: number };
+type FontInfo = { color: string; font: string; lineHeight: number };
 
 export class TextState extends LineBasedState<Array<TagSpan>> {
   private _previousTree: Tree | undefined;
@@ -147,15 +147,15 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     charWidth: number;
     lineHeight: number;
   } {
-    const info = this.getFontInfo("");
+    const { color, font, lineHeight } = this.getFontInfo("");
 
     context.textBaseline = "ideographic";
-    context.fillStyle = info.color;
-    context.font = info.font;
+    context.fillStyle = color;
+    context.font = font;
 
     return {
       charWidth: context.measureText("_").width,
-      lineHeight: info.fontSize,
+      lineHeight: lineHeight,
     };
   }
 
@@ -178,7 +178,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       context.textBaseline = "ideographic";
       context.fillStyle = info.color;
       context.font = info.font;
-      lineHeight = Math.max(lineHeight, info.fontSize);
+      lineHeight = Math.max(lineHeight, info.lineHeight);
 
       switch (this._displayText) {
         case "characters": {
@@ -227,11 +227,12 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
     // Get style information and store it
     const style = window.getComputedStyle(mockToken);
-    const fontSize = Math.floor(parseFloat(style.fontSize));
+    const lineHeight = parseFloat(style.lineHeight);
+    const fontSize = Math.floor(lineHeight); // Round to nearest pixel
     const result = {
       color: style.color,
       font: `${style.fontStyle} ${style.fontWeight} ${fontSize}px ${style.fontFamily}`,
-      fontSize,
+      lineHeight,
     };
     this._fontInfoMap.set(tags, result);
 

@@ -36,7 +36,10 @@ const Theme = EditorView.theme({
 });
 
 const CANVAS_MAX_WIDTH = 120;
-const SCALE = 3;
+const CANVAS_MULTIPLIER = 10;
+
+// https://stackoverflow.com/questions/6081483/maximum-size-of-a-canvas-element
+const MAX_DIMENSION = 16384;
 
 const minimapClass = ViewPlugin.fromClass(
   class {
@@ -93,16 +96,16 @@ const minimapClass = ViewPlugin.fromClass(
       const innerX = this.view.contentDOM.clientWidth;
       this.updateBoxShadow();
 
-      if (innerX <= SCALE * CANVAS_MAX_WIDTH) {
-        const ratio = innerX / (SCALE * CANVAS_MAX_WIDTH);
+      if (innerX <= CANVAS_MAX_WIDTH) {
+        const ratio = innerX / CANVAS_MAX_WIDTH;
 
-        this.canvas.width = CANVAS_MAX_WIDTH * ratio * 2;
+        this.canvas.width = CANVAS_MAX_WIDTH * ratio * CANVAS_MULTIPLIER;
       } else {
-        this.canvas.width = CANVAS_MAX_WIDTH * 2;
+        this.canvas.width = CANVAS_MAX_WIDTH * CANVAS_MULTIPLIER;
       }
 
       this.inner.style.minHeight = this.view.dom.clientHeight + "px";
-      this.canvas.height = this.view.dom.clientHeight * 2;
+      this.canvas.height = this.view.dom.clientHeight * CANVAS_MULTIPLIER;
       this.canvas.style.height = this.view.dom.clientHeight + "px";
 
       const context = this.canvas.getContext("2d");
@@ -127,7 +130,6 @@ const minimapClass = ViewPlugin.fromClass(
           offsetY,
           lineHeight,
           charWidth,
-          scale: SCALE,
         };
 
         this.text.drawLine(drawContext, i + 1);

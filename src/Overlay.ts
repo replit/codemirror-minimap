@@ -3,8 +3,7 @@ import { Config, Options } from "./Config";
 import crelt from "crelt";
 
 /* TODO: Some kind of rendering config */
-const SCALE = 3;
-const RATIO = SCALE * 2 /* Canvas is 2x'ed */ * 1.4; /* line height */
+const SCALE = 10;
 
 const Theme = EditorView.theme({
   ".cm-minimap-overlay-container": {
@@ -90,7 +89,7 @@ const OverlayView = ViewPlugin.fromClass(
     }
 
     public computeHeight() {
-      const height = this.view.dom.clientHeight / RATIO;
+      const height = this.view.dom.clientHeight / SCALE;
       this.dom.style.height = height + "px";
     }
 
@@ -99,9 +98,9 @@ const OverlayView = ViewPlugin.fromClass(
         const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
 
         const maxScrollTop = scrollHeight - clientHeight;
-        const topForNonOverflowing = scrollTop / RATIO;
+        const topForNonOverflowing = scrollTop / SCALE;
 
-        const height = clientHeight / RATIO;
+        const height = clientHeight / SCALE;
         const maxTop = clientHeight - height;
         const scrollRatio = scrollTop / maxScrollTop;
         const topForOverflowing = maxTop * scrollRatio;
@@ -140,10 +139,10 @@ const OverlayView = ViewPlugin.fromClass(
       // position of the MouseEvent on the minimap canvas
       const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
       const targetTop = (target as HTMLElement).getBoundingClientRect().top;
-      const deltaY = (clientY - targetTop) * RATIO;
+      const deltaY = (clientY - targetTop) * SCALE;
 
       const scrollRatio = scrollTop / (scrollHeight - clientHeight);
-      const visibleRange = clientHeight * RATIO - clientHeight;
+      const visibleRange = clientHeight * SCALE - clientHeight;
       const visibleTop = visibleRange * scrollRatio;
 
       const top = Math.max(0, scrollTop - visibleTop);
@@ -212,8 +211,8 @@ const OverlayView = ViewPlugin.fromClass(
       const scrollHeight = this.view.scrollDOM.scrollHeight;
       const clientHeight = this.view.scrollDOM.clientHeight;
 
-      const maxTopNonOverflowing = (scrollHeight - clientHeight) / RATIO;
-      const maxTopOverflowing = clientHeight - clientHeight / RATIO;
+      const maxTopNonOverflowing = (scrollHeight - clientHeight) / SCALE;
+      const maxTopOverflowing = clientHeight - clientHeight / SCALE;
 
       const change = canvasRelTopDouble + deltaY;
 
@@ -227,7 +226,7 @@ const OverlayView = ViewPlugin.fromClass(
       const scrollPosOverflowing =
         (scrollHeight - clientHeight) * relativeToMax;
 
-      const scrollPosNonOverflowing = change * RATIO;
+      const scrollPosNonOverflowing = change * SCALE;
       this.view.scrollDOM.scrollTop = Math.max(
         scrollPosOverflowing,
         scrollPosNonOverflowing
