@@ -91,19 +91,21 @@ const minimapClass = ViewPlugin.fromClass(
       this.render();
     }
 
+    getWidth(): number {
+      const innerX = this.view.contentDOM.clientWidth;
+      if (innerX <= CANVAS_MAX_WIDTH) {
+        const ratio = innerX / CANVAS_MAX_WIDTH;
+        return CANVAS_MAX_WIDTH * ratio * CANVAS_MULTIPLIER;
+      }
+      return CANVAS_MAX_WIDTH * CANVAS_MULTIPLIER;
+    }
+
     render() {
       this.text.beforeDraw();
 
-      const innerX = this.view.contentDOM.clientWidth;
       this.updateBoxShadow();
 
-      if (innerX <= CANVAS_MAX_WIDTH) {
-        const ratio = innerX / CANVAS_MAX_WIDTH;
-
-        this.canvas.width = CANVAS_MAX_WIDTH * ratio * CANVAS_MULTIPLIER;
-      } else {
-        this.canvas.width = CANVAS_MAX_WIDTH * CANVAS_MULTIPLIER;
-      }
+      this.canvas.width = this.getWidth();
 
       const domHeight = this.view.dom.getBoundingClientRect().height;
       this.inner.style.minHeight = domHeight + "px";
@@ -197,6 +199,16 @@ const minimapClass = ViewPlugin.fromClass(
       scroll() {
         requestAnimationFrame(() => this.render());
       },
+    },
+    provide: (plugin) => {
+      return EditorView.scrollMargins.of((view) => {
+        const width = view.plugin(plugin)?.getWidth();
+        if (!width) {
+          return null;
+        }
+
+        return { right: width };
+      });
     },
   }
 );
