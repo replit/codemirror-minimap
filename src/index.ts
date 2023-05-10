@@ -26,6 +26,7 @@ const Theme = EditorView.theme({
     position: "absolute",
     right: 0,
     top: 0,
+    overflowY: "hidden",
     "& canvas": {
       display: "block",
     },
@@ -104,9 +105,10 @@ const minimapClass = ViewPlugin.fromClass(
         this.canvas.width = CANVAS_MAX_WIDTH * CANVAS_MULTIPLIER;
       }
 
-      this.inner.style.minHeight = this.view.dom.clientHeight + "px";
-      this.canvas.height = this.view.dom.clientHeight * CANVAS_MULTIPLIER;
-      this.canvas.style.height = this.view.dom.clientHeight + "px";
+      const domHeight = this.view.dom.getBoundingClientRect().height;
+      this.inner.style.minHeight = domHeight + "px";
+      this.canvas.height = domHeight * CANVAS_MULTIPLIER;
+      this.canvas.style.height = domHeight + "px";
 
       const context = this.canvas.getContext("2d");
       if (!context) {
