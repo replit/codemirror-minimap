@@ -76,7 +76,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {
-    const { context, lineHeight, offsetY, scale } = ctx;
+    const { context, lineHeight, offsetY } = ctx;
     const severity = this.get(lineNumber);
     if (!severity) {
       return;
@@ -88,7 +88,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
     context.rect(
       0,
       offsetY /* TODO Scaling causes anti-aliasing in rectangles */,
-      context.canvas.width * scale,
+      context.canvas.width,
       lineHeight
     );
     context.fillStyle = this.color(severity);
