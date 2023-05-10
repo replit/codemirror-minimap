@@ -68,8 +68,10 @@ const OverlayView = ViewPlugin.fromClass(
         inner.appendChild(this.container);
       }
 
-      // Initially set overlay configuration styles
+      // Initially set overlay configuration styles, height, top
       this.computeShowOverlay();
+      this.computeHeight();
+      this.computeTop();
     }
 
     update(update: ViewUpdate) {
@@ -95,7 +97,8 @@ const OverlayView = ViewPlugin.fromClass(
 
         const height = clientHeight / SCALE;
         const maxTop = clientHeight - height;
-        const scrollRatio = scrollTop / maxScrollTop;
+        let scrollRatio = scrollTop / maxScrollTop;
+        if (isNaN(scrollRatio)) scrollRatio = 0;
         const topForOverflowing = maxTop * scrollRatio;
 
         const top = Math.min(topForOverflowing, topForNonOverflowing);
