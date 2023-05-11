@@ -7,6 +7,7 @@ import { EditorView, ViewUpdate } from "@codemirror/view";
 import { DrawContext } from "./types";
 import { Config, Options, Scale } from "./Config";
 import { LinesState, foldsChanged } from "./LinesState";
+import crelt from "crelt";
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; lineHeight: number };
@@ -221,10 +222,14 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       return cached;
     }
 
-    // Create a mock token
-    const mockToken = document.createElement("span");
-    mockToken.setAttribute("class", tags);
-    this.view.contentDOM.appendChild(mockToken);
+    // Create a mock token wrapped in a cm-line
+    const mockToken = crelt("span", { class: tags });
+    const mockLine = crelt(
+      "div",
+      { class: "cm-line", style: "display: none" },
+      mockToken
+    );
+    this.view.contentDOM.appendChild(mockLine);
 
     // Get style information and store it
     const style = window.getComputedStyle(mockToken);
@@ -237,7 +242,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     this._fontInfoMap.set(tags, result);
 
     // Clean up and return
-    this.view.contentDOM.removeChild(mockToken);
+    this.view.contentDOM.removeChild(mockLine);
     return result;
   }
 }
