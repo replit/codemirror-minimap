@@ -41,6 +41,8 @@ const Scale = {
   PixelMultiplier: 2,
   // Downscale the editor contents by this ratio
   SizeRatio: 4,
+  // Maximum width of the minimap in pixels
+  MaxWidth: 120,
 };
 
 export { Config, Options, Scale };

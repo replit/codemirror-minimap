@@ -36,7 +36,6 @@ const Theme = EditorView.theme({
   },
 });
 
-const MAX_WIDTH = 120;
 const WIDTH_RATIO = 6;
 
 const minimapClass = ViewPlugin.fromClass(
@@ -86,11 +85,11 @@ const minimapClass = ViewPlugin.fromClass(
 
     getWidth(): number {
       const editorWidth = this.view.dom.clientWidth;
-      if (editorWidth <= MAX_WIDTH * WIDTH_RATIO) {
-        const ratio = editorWidth / (MAX_WIDTH * WIDTH_RATIO);
-        return MAX_WIDTH * ratio;
+      if (editorWidth <= Scale.MaxWidth * WIDTH_RATIO) {
+        const ratio = editorWidth / (Scale.MaxWidth * WIDTH_RATIO);
+        return Scale.MaxWidth * ratio;
       }
-      return MAX_WIDTH;
+      return Scale.MaxWidth;
     }
 
     render() {
@@ -171,7 +170,7 @@ const minimapClass = ViewPlugin.fromClass(
 
       return {
         startIndex,
-        endIndex: Math.max(startIndex + spaceForLines, lineCount),
+        endIndex: startIndex + spaceForLines,
         offsetY,
       };
     }
