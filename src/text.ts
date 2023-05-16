@@ -173,12 +173,22 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     let { context, charWidth, lineHeight, offsetY } = ctx;
     let offsetX = 0;
 
+    let prevInfo: FontInfo | undefined;
+    context.textBaseline = "ideographic";
+
     for (const span of line) {
       const info = this.getFontInfo(span.tags);
 
-      context.textBaseline = "ideographic";
-      context.fillStyle = info.color;
-      context.font = info.font;
+      if (!prevInfo || prevInfo.color !== info.color) {
+        context.fillStyle = info.color;
+      }
+
+      if (!prevInfo || prevInfo.font !== info.font) {
+        context.font = info.font;
+      }
+
+      prevInfo = info;
+
       lineHeight = Math.max(lineHeight, info.lineHeight);
 
       switch (this._displayText) {
@@ -188,7 +198,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
           // https://stackoverflow.com/questions/8237030/html5-canvas-faster-filltext-vs-drawimage/8237081
 
           context.fillText(span.text, offsetX, offsetY + lineHeight);
-          offsetX += context.measureText(span.text).width;
+          offsetX += span.text.length * charWidth;
           break;
         }
 

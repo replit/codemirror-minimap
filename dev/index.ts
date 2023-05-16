@@ -15,6 +15,7 @@ import { minimap } from "../src/index";
   const doc = getDoc(window.location.hash);
   const showMinimap = getShowMinimap(window.location.hash);
   const showOverlay = getShowOverlay(window.location.hash);
+  const lintingEnabled = getLintingEnabled(window.location.hash);
   const displayText = getDisplayText(window.location.hash);
   const wrap = getLineWrap(window.location.hash);
   const mode = getMode(window.location.hash);
@@ -76,9 +77,9 @@ import { minimap } from "../src/index";
           "data-gramm_editor": "false",
           "data-enabled-grammarly": "false",
         }),
-        testLinter,
         themeCompartment.of(mode === "dark" ? oneDark : []),
         extensionCompartment.of([
+          lintingEnabled ? testLinter : [],
           showMinimap ? minimap({ showOverlay, displayText }) : [],
           wrap ? EditorView.lineWrapping : [],
         ]),
@@ -93,6 +94,7 @@ import { minimap } from "../src/index";
     const newDoc = getDoc(e.newURL);
     const showMinimap = getShowMinimap(e.newURL);
     const showOverlay = getShowOverlay(window.location.hash);
+    const lintingEnabled = getLintingEnabled(window.location.hash);
     const displayText = getDisplayText(window.location.hash);
     const mode = getMode(window.location.hash);
     const wrap = getLineWrap(window.location.hash);
@@ -104,6 +106,7 @@ import { minimap } from "../src/index";
           : undefined,
       effects: [
         extensionCompartment.reconfigure([
+          lintingEnabled ? testLinter : [],
           showMinimap ? minimap({ showOverlay, displayText }) : [],
           wrap ? EditorView.lineWrapping : [],
         ]),
@@ -148,6 +151,9 @@ function getLineWrap(url: string): boolean {
 }
 function getMode(url: string): "dark" | "light" {
   return getHashValue("mode", url) === "dark" ? "dark" : "light";
+}
+function getLintingEnabled(url: string): boolean {
+  return getHashValue("linting", url) === "disabled" ? false : true;
 }
 function getHashValue(key: string, url: string): string | undefined {
   const hash = url.split("#").slice(1);
