@@ -206,16 +206,27 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
           const nonWhitespace = /\S+/g;
           let start: RegExpExecArray | null;
           while ((start = nonWhitespace.exec(span.text)) !== null) {
-            const spanOffsetX = start.index * charWidth;
+            const startX = offsetX + start.index * charWidth;
+            let width = (nonWhitespace.lastIndex - start.index) * charWidth;
 
-            const width = (nonWhitespace.lastIndex - start.index) * charWidth;
-            const height =
-              lineHeight - 2 / Scale.SizeRatio; /* 2px buffer between lines */
+            // Reached the edge of the minimap
+            if (startX > context.canvas.width) {
+              break;
+            }
+
+            // Limit width to edge of minimap
+            if (startX + width > context.canvas.width) {
+              width = context.canvas.width - startX;
+            }
+
+            // Scaled 2px buffer between lines
+            const yBuffer = 2 / Scale.SizeRatio;
+            const height = lineHeight - yBuffer;
 
             context.fillStyle = info.color;
             context.globalAlpha = 0.65; // Make the blocks a bit faded
             context.beginPath();
-            context.rect(offsetX + spanOffsetX, offsetY, width, height);
+            context.rect(startX, offsetY, width, height);
             context.fill();
           }
 
