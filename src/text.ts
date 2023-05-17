@@ -14,7 +14,7 @@ type FontInfo = { color: string; font: string; lineHeight: number };
 
 export class TextState extends LineBasedState<Array<TagSpan>> {
   private _previousTree: Tree | undefined;
-  private _displayText: Required<Options>["displayText"];
+  private _displayText: Required<Options>["displayText"] | undefined;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
   private _themeClasses: DOMTokenList | undefined;
 
@@ -287,13 +287,14 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       return true;
     }
 
-    for (const theme in previous.entries()) {
+    let containsAll = true;
+    previous.forEach((theme) => {
       if (!now.contains(theme)) {
-        return true;
+        containsAll = false;
       }
-    }
+    });
 
-    return false;
+    return !containsAll;
   }
 }
 
