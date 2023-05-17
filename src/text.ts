@@ -17,6 +17,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
   private _displayText: Required<Options>["displayText"] | undefined;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
   private _themeClasses: DOMTokenList | undefined;
+  private _highlightingCallbackId: number | undefined;
 
   public constructor(view: EditorView) {
     super(view);
@@ -52,6 +53,10 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
   public update(update: ViewUpdate) {
     if (!this.shouldUpdate(update)) {
       return;
+    }
+
+    if (this._highlightingCallbackId) {
+      cancelIdleCallback(this._highlightingCallbackId);
     }
 
     this.updateImpl(update.state, update.changes);
@@ -95,7 +100,96 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       style: (tags) => highlightingFor(state, tags),
     };
 
-    for (const [index, line] of update.state.field(LinesState).entries()) {
+    let highlights: Array<{ from: number; to: number; tags: string }> = [];
+
+    if (tree) {
+      /**
+       * The viewport renders a few extra lines above and below the editor view. To approximate
+       * the lines visible in the minimap, we multiply the lines in the viewport by the scale multipliers.
+       *
+       * Based on the current scroll position, the minimap may show a larger portion of lines above or
+       * below the lines currently in the editor view. On a long document, when the scroll position is
+       * near the top of the document, the minimap will show a small number of lines above the lines
+       * in the editor view, and a large number of lines below the lines in the editor view.
+       *
+       * To approximate this ratio, we can use the viewport scroll percentage
+       *
+       * ┌─────────────────────┐
+       * │                     │
+       * │   Extra viewport    │
+       * │   buffer            │
+       * ├─────────────────────┼───────┐
+       * │                     │Minimap│
+       * │                     │Gutter │
+       * │                     ├───────┤
+       * │    Editor View      │Scaled │
+       * │                     │View   │
+       * │                     │Overlay│
+       * │                     ├───────┤
+       * │                     │       │
+       * │                     │       │
+       * ├─────────────────────┼───────┘
+       * │                     │
+       * │    Extra viewport   │
+       * │    buffer           │
+       * └─────────────────────┘
+       *
+       **/
+
+      const vpLineTop = state.doc.lineAt(this.view.viewport.from).number;
+      const vpLineBottom = state.doc.lineAt(this.view.viewport.to).number;
+      const vpLineCount = vpLineBottom - vpLineTop;
+      const vpScroll = vpLineTop / (state.doc.lines - vpLineCount);
+
+      const { SizeRatio, PixelMultiplier } = Scale;
+      const mmLineCount = vpLineCount * SizeRatio * PixelMultiplier;
+      const mmLineRatio = vpScroll * mmLineCount;
+
+      const mmLineTop = Math.max(1, Math.floor(vpLineTop - mmLineRatio));
+      const mmLineBottom = Math.min(
+        vpLineBottom + Math.floor(mmLineCount - mmLineRatio),
+        state.doc.lines
+      );
+
+      // Highlight the in-view lines synchronously
+      highlightTree(
+        tree,
+        highlighter,
+        (from, to, tags) => {
+          highlights.push({ from, to, tags });
+        },
+        state.doc.line(mmLineTop).from,
+        state.doc.line(mmLineBottom).to
+      );
+    }
+
+    // Update the map
+    this.updateMapImpl(state, highlights);
+
+    // Highlight the entire tree in an idle callback
+    highlights = [];
+    this._highlightingCallbackId = requestIdleCallback(() => {
+      if (tree) {
+        highlightTree(tree, highlighter, (from, to, tags) => {
+          highlights.push({ from, to, tags });
+        });
+        this.updateMapImpl(state, highlights);
+        this._highlightingCallbackId = undefined;
+      }
+    });
+  }
+
+  private updateMapImpl(
+    state: EditorState,
+    highlights: Array<{ from: number; to: number; tags: string }>
+  ) {
+    this.map.clear();
+
+    const docToString = state.doc.toString();
+    const highlightsIterator = highlights.values();
+    let highlightPtr = highlightsIterator.next();
+
+    for (const [index, line] of state.field(LinesState).entries()) {
       const spans: Array<TagSpan> = [];
 
       for (const span of line) {
@@ -110,32 +204,42 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
           continue;
         }
 
-        // If we don't have syntax highlighting, just push the whole span unstyled
-        if (!tree) {
-          spans.push({ text: doc.sliceString(span.from, span.to), tags: "" });
-          continue;
+        let position = span.from;
+        while (!highlightPtr.done && highlightPtr.value.from < span.to) {
+          const { from, to, tags } = highlightPtr.value;
+
+          // Iterate until our highlight is over the current span
+          if (to < position) {
+            highlightPtr = highlightsIterator.next();
+            continue;
+          }
+
+          // Append unstyled text before the highlight begins
+          if (from > position) {
+            spans.push({ text: docToString.slice(position, from), tags: "" });
+          }
+
+          // A highlight may start before and extend beyond the current span
+          const start = Math.max(from, span.from);
+          const end = Math.min(to, span.to);
+
+          // Append the highlighted text
+          spans.push({ text: docToString.slice(start, end), tags });
+          position = end;
+
+          // If the highlight continues beyond this span, break from this loop
+          if (to > end) {
+            break;
+          }
+
+          // Otherwise, move to the next highlight
+          highlightPtr = highlightsIterator.next();
         }
 
-        let position = span.from;
-        highlightTree(
-          tree,
-          highlighter,
-          (from, to, tags) => {
-            if (from > position) {
-              spans.push({ text: doc.sliceString(position, from), tags: "" });
-            }
-
-            spans.push({ text: doc.sliceString(from, to), tags });
-            position = to;
-          },
-          span.from,
-          span.to
-        );
-
-        // If there are remaining spans that did not get highlighted, we append them here
+        // If there are remaining spans that did not get highlighted, append them unstyled
         if (position !== span.to) {
           spans.push({
-            text: doc.sliceString(position, span.to),
+            text: docToString.slice(position, span.to),
             tags: "",
           });
         }

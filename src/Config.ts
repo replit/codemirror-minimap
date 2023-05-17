@@ -43,6 +43,6 @@ const Scale = {
   SizeRatio: 4,
   // Maximum width of the minimap in pixels
   MaxWidth: 120,
-};
+} as const;
 
 export { Config, Options, Scale };

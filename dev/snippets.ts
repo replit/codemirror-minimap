@@ -497,4 +497,6 @@ const long = `
   console.log('The sum of factorials is: ', sumOfFactorials);
 `;
 
-export default { short, medium, long };
+import { massive } from "./massive";
+
+export default { short, medium, long, massive };
