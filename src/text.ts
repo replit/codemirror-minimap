@@ -1,4 +1,3 @@
-import { EditorState, Text, SelectionRange } from "@codemirror/state";
 import { LineBasedState } from "./linebasedstate";
 import { Highlighter, highlightTree } from "@lezer/highlight";
 import { ChangedRange, Tree, TreeFragment } from "@lezer/common";
@@ -8,6 +7,7 @@ import { DrawContext } from "./types";
 import { Config, Options, Scale } from "./Config";
 import { LinesState, foldsChanged } from "./LinesState";
 import crelt from "crelt";
+import { ChangeSet, EditorState } from "@codemirror/state";
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; lineHeight: number };
@@ -16,12 +16,13 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
   private _previousTree: Tree | undefined;
   private _displayText: Required<Options>["displayText"];
   private _fontInfoMap: Map<string, FontInfo> = new Map();
-  private _themeClasses: string;
+  private _themeClasses: DOMTokenList | undefined;
 
   public constructor(view: EditorView) {
     super(view);
 
-    this._themeClasses = view.dom.classList.value;
+    this._themeClasses = view.dom.classList;
+    this.updateImpl(view.state);
   }
 
   private shouldUpdate(update: ViewUpdate) {
@@ -36,7 +37,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     // If the theme changed
-    if (this._themeClasses !== this.view.dom.classList.value) {
+    if (this.themeChanged()) {
       return true;
     }
 
@@ -52,24 +53,28 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     if (!this.shouldUpdate(update)) {
       return;
     }
+
+    this.updateImpl(update.state, update.changes);
+  }
+
+  private updateImpl(state: EditorState, changes?: ChangeSet) {
     this.map.clear();
 
     /* Store display text setting for rendering */
-    this._displayText = update.state.facet(Config).displayText;
+    this._displayText = state.facet(Config).displayText;
 
     /* If class list has changed, clear and recalculate the font info map */
-    if (this._themeClasses !== this.view.dom.classList.value) {
+    if (this.themeChanged()) {
       this._fontInfoMap.clear();
-      this._themeClasses = this.view.dom.classList.value;
     }
 
     /* Incrementally parse the tree based on previous tree + changes */
     let treeFragments: ReadonlyArray<TreeFragment> | undefined = undefined;
-    if (this._previousTree) {
+    if (this._previousTree && changes) {
       const previousFragments = TreeFragment.addTree(this._previousTree);
 
       const changedRanges: Array<ChangedRange> = [];
-      update.changes.iterChangedRanges((fromA, toA, fromB, toB) =>
+      changes.iterChangedRanges((fromA, toA, fromB, toB) =>
         changedRanges.push({ fromA, toA, fromB, toB })
       );
 
@@ -80,16 +85,14 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     /* Parse the document into a lezer tree */
-    const doc = Text.of(update.state.doc.toString().split("\n"));
-    const parser = update.state.facet(language)?.parser;
-    const tree = parser
-      ? parser.parse(doc.toString(), treeFragments)
-      : undefined;
+    const docToString = state.doc.toString();
+    const parser = state.facet(language)?.parser;
+    const tree = parser ? parser.parse(docToString, treeFragments) : undefined;
     this._previousTree = tree;
 
     /* Highlight the document, and store the text and tags for each line */
     const highlighter: Highlighter = {
-      style: (tags) => highlightingFor(update.state, tags),
+      style: (tags) => highlightingFor(state, tags),
     };
 
     for (const [index, line] of update.state.field(LinesState).entries()) {
@@ -161,7 +164,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
   }
 
   public beforeDraw() {
-    this._fontInfoMap.clear();
+    this._fontInfoMap.clear(); // TODO: Confirm this worked for theme changes or get rid of it because it's slow
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {
@@ -265,6 +268,32 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     // Clean up and return
     this.view.contentDOM.removeChild(mockLine);
     return result;
+  }
+
+  private themeChanged(): boolean {
+    const previous = this._themeClasses;
+    const now = this.view.dom.classList;
+    this._themeClasses = now;
+
+    if (!previous) {
+      return true;
+    }
+
+    // Ignore certain classes being added/removed
+    previous.remove("cm-focused");
+    now.remove("cm-focused");
+
+    if (previous.length !== now.length) {
+      return true;
+    }
+
+    for (const theme in previous.entries()) {
+      if (!now.contains(theme)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 }
 
