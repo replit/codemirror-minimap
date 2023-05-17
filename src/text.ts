@@ -16,13 +16,13 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
   private _previousTree: Tree | undefined;
   private _displayText: Required<Options>["displayText"] | undefined;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
-  private _themeClasses: DOMTokenList | undefined;
+  private _themeClasses: Set<string> | undefined;
   private _highlightingCallbackId: number | undefined;
 
   public constructor(view: EditorView) {
     super(view);
 
-    this._themeClasses = view.dom.classList;
+    this._themeClasses = new Set(view.dom.classList.values());
     this.updateImpl(view.state);
   }
 
@@ -376,7 +376,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
   private themeChanged(): boolean {
     const previous = this._themeClasses;
-    const now = this.view.dom.classList;
+    const now = new Set(this.view.dom.classList.values());
     this._themeClasses = now;
 
     if (!previous) {
@@ -384,16 +384,16 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     // Ignore certain classes being added/removed
-    previous.remove("cm-focused");
-    now.remove("cm-focused");
+    previous.delete("cm-focused");
+    now.delete("cm-focused");
 
-    if (previous.length !== now.length) {
+    if (previous.size !== now.size) {
       return true;
     }
 
     let containsAll = true;
     previous.forEach((theme) => {
-      if (!now.contains(theme)) {
+      if (!now.has(theme)) {
         containsAll = false;
       }
     });
