@@ -35,7 +35,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
     }
 
     // If the folds changed
-    if (foldsChanged(update)) {
+    if (foldsChanged(update.transactions)) {
       return true;
     }
 

@@ -1,20 +1,23 @@
 import { foldEffect, foldedRanges, unfoldEffect } from "@codemirror/language";
-import { Text, StateField, EditorState } from "@codemirror/state";
-import { ViewUpdate } from "@codemirror/view";
+import { StateField, EditorState, Transaction } from "@codemirror/state";
 
 type Span = { from: number; to: number; folded: boolean };
 type Line = Array<Span>;
 type Lines = Array<Line>;
 
 function computeLinesState(state: EditorState): Lines {
-  const doc = Text.of(state.doc.toString().split("\n"));
-
-  let foldedRangeCursor = foldedRanges(state).iter();
-
   const lines: Lines = [];
 
-  for (let i = 1; i <= doc.lines; i++) {
-    let { from, to } = doc.line(i);
+  const lineCursor = state.doc.iterLines();
+  const foldedRangeCursor = foldedRanges(state).iter();
+
+  let textOffset = 0;
+  lineCursor.next();
+
+  while (!lineCursor.done) {
+    const lineText = lineCursor.value;
+    let from = textOffset;
+    let to = from + lineText.length;
 
     // Iterate through folded ranges until we're at or past the current line
     while (foldedRangeCursor.value && foldedRangeCursor.to < from) {
@@ -50,18 +53,17 @@ function computeLinesState(state: EditorState): Lines {
       }
 
       lines.push(lastLine);
-      continue;
-    }
-
-    if (lineEndsInFold) {
+    } else if (lineEndsInFold) {
       lines.push([
         { from, to: foldFrom, folded: false },
         { from: foldFrom, to: foldTo, folded: true },
       ]);
-      continue;
+    } else {
+      lines.push([{ from, to, folded: false }]);
     }
 
-    lines.push([{ from, to, folded: false }]);
+    textOffset = to + 1;
+    lineCursor.next();
   }
 
   return lines;
@@ -69,11 +71,17 @@ function computeLinesState(state: EditorState): Lines {
 
 const LinesState = StateField.define<Lines>({
   create: (state) => computeLinesState(state),
-  update: (_, { state }) => computeLinesState(state),
+  update: (current, tr) => {
+    if (foldsChanged([tr]) || tr.docChanged) {
+      return computeLinesState(tr.state);
+    }
+
+    return current;
+  },
 });
 
 /** Returns if the folds have changed in this update */
-function foldsChanged({ transactions }: ViewUpdate) {
+function foldsChanged(transactions: readonly Transaction[]) {
   return transactions.find((tr) =>
     tr.effects.find((ef) => ef.is(foldEffect) || ef.is(unfoldEffect))
   );

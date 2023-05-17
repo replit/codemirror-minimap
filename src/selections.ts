@@ -34,7 +34,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
     }
 
     // If the folds changed
-    if (foldsChanged(update)) {
+    if (foldsChanged(update.transactions)) {
       return true;
     }
 
