@@ -56,7 +56,9 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     if (this._highlightingCallbackId) {
-      cancelIdleCallback(this._highlightingCallbackId);
+      typeof window.requestIdleCallback !== "undefined"
+        ? cancelIdleCallback(this._highlightingCallbackId)
+        : clearTimeout(this._highlightingCallbackId);
     }
 
     this.updateImpl(update.state, update.changes);
@@ -168,7 +170,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
     // Highlight the entire tree in an idle callback
     highlights = [];
-    this._highlightingCallbackId = requestIdleCallback(() => {
+    const highlightingCallback = () => {
       if (tree) {
         highlightTree(tree, highlighter, (from, to, tags) => {
           highlights.push({ from, to, tags });
@@ -176,7 +178,11 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
         this.updateMapImpl(state, highlights);
         this._highlightingCallbackId = undefined;
       }
-    });
+    };
+    this._highlightingCallbackId =
+      typeof window.requestIdleCallback !== "undefined"
+        ? requestIdleCallback(highlightingCallback)
+        : setTimeout(highlightingCallback);
   }
 
   private updateMapImpl(
