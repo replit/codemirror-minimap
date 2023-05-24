@@ -10,8 +10,8 @@
 </div>
 <br />
 <div style="display:flex">
-    <img height="350" alt="image" src="https://github.com/replit/codemirror-minimap/assets/16962017/cb2f33a2-726f-4395-a8bd-8d219a74b1e6">
-    <img height="350" alt="image" src="https://github.com/replit/codemirror-minimap/assets/16962017/3b148589-0883-4eb0-8b26-584909cb0900">
+    <img height="275" alt="image" src="https://github.com/replit/codemirror-minimap/assets/16962017/cb2f33a2-726f-4395-a8bd-8d219a74b1e6">
+    <img height="275" alt="image" src="https://github.com/replit/codemirror-minimap/assets/16962017/3b148589-0883-4eb0-8b26-584909cb0900">
 </div>
 <br />
 
