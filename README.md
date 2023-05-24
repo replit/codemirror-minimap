@@ -8,6 +8,13 @@
         <a href="https://www.npmjs.com/package/@replit/codemirror-minimap" title="NPM version badge"><img src="https://img.shields.io/npm/v/@replit/codemirror-minimap?style=flat&color=orange" height="32" alt="NPM version badge" /></a>
     </span>
 </div>
+<br />
+<div style="display:flex">
+    <img height="350" alt="image" src="https://github.com/replit/codemirror-minimap/assets/16962017/cb2f33a2-726f-4395-a8bd-8d219a74b1e6">
+    <img height="350" alt="image" src="https://github.com/replit/codemirror-minimap/assets/16962017/3b148589-0883-4eb0-8b26-584909cb0900">
+</div>
+<br />
+
 
 ## Installation
 
@@ -17,7 +24,7 @@ pnpm i @replit/codemirror-minimap
 
 ## Usage
 
-```
+```typescript
 import { basicSetup, EditorView } from 'codemirror';
 import { minimap } from "@replit/codemirror-minimap"
 
@@ -37,7 +44,7 @@ The minimap extension exposes a few configuration options:
 
 **`displayText`**: customize how the editor text is displayed:
 
-```
+```typescript
 /**
  * displayText?: "blocks" | "characters";
  * Defaults to "characters"
@@ -47,9 +54,22 @@ minimap({
 })
 ```
 
+**`eventHandlers`**: attach event handlers to the minimap container element
+
+```typescript
+/**
+ * eventHandlers?: {[event in keyof DOMEventMap]?: EventHandler<event>}
+ */
+minimap({
+  eventHandlers: {
+    'contextmenu': (e) => onContextMenu(e)
+  }
+})
+```
+
 **`showOverlay`**: customize when the overlay showing the current viewport is visible
 
-```
+```typescript
 /**
  * showOverlay?: "always" | "mouse-over";
  * Defaults to "always"
