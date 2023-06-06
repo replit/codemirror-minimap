@@ -1,4 +1,7 @@
 run="yarn run dev"
+entrypoint = "index.ts"
+hidden = [".build", ".config"]
+compile = "./.config/build.sh"
 
 [packager]
 language = "nodejs-yarn"
@@ -10,3 +13,9 @@ guessImports = true
 pattern = "**/*.ts"
 [languages.js.languageServer]
 start = ["typescript-language-server", "--stdio"]
+
+[nix]
+channel = "stable-22_11"
+
+[gitHubImport]
+requiredFiles = [".replit", "replit.nix", ".config"]
