@@ -1,7 +1,7 @@
 { pkgs }: {
 	deps = [
     pkgs.nodePackages.pnpm
-		pkgs.nodejs-16_x
+		pkgs.nodejs-18_x
     pkgs.nodePackages.typescript-language-server
 	];
 }

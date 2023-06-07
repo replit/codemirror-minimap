@@ -1,10 +1,10 @@
-run="yarn run dev"
+run="pnpm run dev"
 entrypoint = "index.ts"
 hidden = [".build", ".config"]
-compile = "./.config/build.sh"
+
 
 [packager]
-language = "nodejs-yarn"
+language = "nodejs-pnpm"
 [packager.features]
 packageSearch = true
 guessImports = true
