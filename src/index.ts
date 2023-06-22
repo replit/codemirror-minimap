@@ -80,7 +80,13 @@ const minimapClass = ViewPlugin.fromClass(
       this.text.update(update);
       this.selection.update(update);
       this.diagnostic.update(update);
-      this.render();
+      /* TODO: brady - Render phase needs to be split up to correctly read and write.
+         Currently we perform everything in read to avoid CM throwing */
+      this.view.requestMeasure({
+        read: () => {
+          this.render()
+        },
+      });
     }
 
     getWidth(): number {
@@ -116,14 +122,14 @@ const minimapClass = ViewPlugin.fromClass(
       /* We need to get the correct font dimensions before this to measure characters */
       const { charWidth, lineHeight } = this.text.measure(context);
 
-      let { startIndex, endIndex, offsetY } = this.canvasStartAndEndIndex(
+      let { startNumber, endNumber, offsetY } = this.canvasStartAndEndLineNumber(
         context,
         lineHeight
       );
 
-      for (let i = startIndex; i < endIndex; i++) {
+      for (let i = startNumber; i < endNumber; i++) {
         const lines = this.view.state.field(LinesState);
-        if (i >= lines.length) break;
+        if (i > lines.length) break;
 
         const drawContext = {
           context,
@@ -132,17 +138,19 @@ const minimapClass = ViewPlugin.fromClass(
           charWidth,
         };
 
-        this.text.drawLine(drawContext, i + 1);
-        this.selection.drawLine(drawContext, i + 1);
-        this.diagnostic.drawLine(drawContext, i + 1);
+        this.text.drawLine(drawContext, i);
+        this.selection.drawLine(drawContext, i);
+        this.diagnostic.drawLine(drawContext, i);
 
-        offsetY += lineHeight;
+        // This is pretty close, now we need to wrap the actual elements
+        const totalLineHeight = this.view.lineBlockAt(this.view.state.doc.line(i).from).height / Scale.SizeRatio;
+        offsetY += totalLineHeight;
       }
 
       context.restore();
     }
 
-    private canvasStartAndEndIndex(
+    private canvasStartAndEndLineNumber(
       context: CanvasRenderingContext2D,
       lineHeight: number
     ) {
@@ -156,8 +164,7 @@ const minimapClass = ViewPlugin.fromClass(
         scrollPercent = 0;
       }
 
-      const lineCount = this.view.state.field(LinesState).length;
-      const totalHeight = pTop + pBottom + lineCount * lineHeight;
+      const totalHeight = this.view.contentHeight / Scale.SizeRatio;
 
       const canvasTop = Math.max(
         0,
@@ -165,12 +172,15 @@ const minimapClass = ViewPlugin.fromClass(
       );
       const offsetY = Math.max(0, pTop - canvasTop);
 
-      const startIndex = Math.round(Math.max(0, canvasTop - pTop) / lineHeight);
+      const heightAtTop = Math.max(0, canvasTop - pTop);
+
+      // TODO: This can potentially be more precise, we actually might be in the middle of a block
+      const startNumber = this.view.state.doc.lineAt(this.view.lineBlockAtHeight(heightAtTop).from).number;
       const spaceForLines = Math.round((canvasHeight - offsetY) / lineHeight);
 
       return {
-        startIndex,
-        endIndex: startIndex + spaceForLines,
+        startNumber,
+        endNumber: startNumber + spaceForLines,
         offsetY,
       };
     }

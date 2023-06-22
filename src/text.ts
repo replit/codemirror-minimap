@@ -7,12 +7,13 @@ import { DrawContext } from "./types";
 import { Config, Options, Scale } from "./Config";
 import { LinesState, foldsChanged } from "./LinesState";
 import crelt from "crelt";
-import { ChangeSet, EditorState } from "@codemirror/state";
+import { ChangeSet, EditorState, EditorSelection } from "@codemirror/state";
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; lineHeight: number };
+type Line = { line: Array<TagSpan>; offset: number; prevImageData: ImageData | null; }
 
-export class TextState extends LineBasedState<Array<TagSpan>> {
+export class TextState extends LineBasedState<Line> {
   private _previousTree: Tree | undefined;
   private _displayText: Required<Options>["displayText"] | undefined;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
@@ -194,9 +195,14 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     const docToString = state.doc.toString();
     const highlightsIterator = highlights.values();
     let highlightPtr = highlightsIterator.next();
+    let lineStartOffset = 0;
 
     for (const [index, line] of state.field(LinesState).entries()) {
       const spans: Array<TagSpan> = [];
+
+      if (line.length > 0) {
+        lineStartOffset = line[0].from;
+      }
 
       for (const span of line) {
         // Skip if it's a 0-length span
@@ -253,7 +259,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
       // Lines are indexed beginning at 1 instead of 0
       const lineNumber = index + 1;
-      this.map.set(lineNumber, spans);
+      this.map.set(lineNumber, { line: spans, offset: lineStartOffset, prevImageData: null });
     }
   }
 
@@ -277,9 +283,71 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     this._fontInfoMap.clear(); // TODO: Confirm this worked for theme changes or get rid of it because it's slow
   }
 
+  private nextBoundaryWithinLine(currentPosition: number) {
+    if (this.view.lineWrapping) {
+      console.log(currentPosition, this.view.moveToLineBoundary(EditorSelection.range(currentPosition, currentPosition), true, true));
+      return this.view.moveToLineBoundary(EditorSelection.range(currentPosition, currentPosition), true, true).to
+    }
+
+    return null;
+  }
+
+  private drawSpan(ctx: DrawContext, span: TagSpan, info: FontInfo, offsetX: number, innerLineOffset: number) {
+    let { context, charWidth, lineHeight, offsetY } = ctx;
+
+    lineHeight = Math.max(lineHeight, info.lineHeight);
+
+
+    switch (this._displayText) {
+      case "characters": {
+        // TODO: `fillText` takes up the majority of profiling time in `render`
+        // Try speeding it up with `drawImage`
+        // https://stackoverflow.com/questions/8237030/html5-canvas-faster-filltext-vs-drawimage/8237081
+
+        context.fillText(span.text, offsetX * charWidth, offsetY + lineHeight + innerLineOffset * lineHeight);
+        return;
+      }
+
+      case "blocks": {
+        const nonWhitespace = /\S+/g;
+        let start: RegExpExecArray | null;
+        while ((start = nonWhitespace.exec(span.text)) !== null) {
+          const startX = (offsetX + start.index) * charWidth;
+          let width = (nonWhitespace.lastIndex - start.index) * charWidth;
+
+          // Reached the edge of the minimap
+          if (startX > context.canvas.width) {
+            break;
+          }
+
+          // Limit width to edge of minimap
+          if (startX + width > context.canvas.width) {
+            width = context.canvas.width - startX;
+          }
+
+          // Scaled 2px buffer between lines
+          const yBuffer = 2 / Scale.SizeRatio;
+          const height = lineHeight - yBuffer;
+
+          context.fillStyle = info.color;
+          context.globalAlpha = 0.65; // Make the blocks a bit faded
+          context.beginPath();
+          context.rect(startX, offsetY + innerLineOffset * lineHeight, width, height);
+          context.fill();
+        }
+        return;
+      }
+    }
+  }
+
   public drawLine(ctx: DrawContext, lineNumber: number) {
     const line = this.get(lineNumber);
     if (!line) {
+      return;
+    }
+
+    if (line.prevImageData) {
+      ctx.context.putImageData(line.prevImageData, 0, ctx.offsetY);
       return;
     }
 
@@ -289,65 +357,68 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     let prevInfo: FontInfo | undefined;
     context.textBaseline = "ideographic";
 
-    for (const span of line) {
-      const info = this.getFontInfo(span.tags);
 
+    let nextBoundary = this.nextBoundaryWithinLine(line.offset);
+    let innerLineCount = 0; // Used to offset Y when we wrap onto multiple lines
+    let innerLineOffset = 0; // Used to offset X when we begin a new span
+
+    for (const fullSpan of line.line) {
+      /* Font info */
+      const info = this.getFontInfo(fullSpan.tags);
       if (!prevInfo || prevInfo.color !== info.color) {
         context.fillStyle = info.color;
       }
-
       if (!prevInfo || prevInfo.font !== info.font) {
         context.font = info.font;
       }
-
       prevInfo = info;
+      /* End font info */
 
-      lineHeight = Math.max(lineHeight, info.lineHeight);
 
-      switch (this._displayText) {
-        case "characters": {
-          // TODO: `fillText` takes up the majority of profiling time in `render`
-          // Try speeding it up with `drawImage`
-          // https://stackoverflow.com/questions/8237030/html5-canvas-faster-filltext-vs-drawimage/8237081
+      let spanExtendsBeyondLine = false;
+      let spanOffset = 0;
 
-          context.fillText(span.text, offsetX, offsetY + lineHeight);
-          offsetX += span.text.length * charWidth;
-          break;
+      do {
+
+        let overflow = 0;
+        if (nextBoundary) {
+          overflow = (line.offset + fullSpan.text.length + innerLineOffset) - nextBoundary;
         }
 
-        case "blocks": {
-          const nonWhitespace = /\S+/g;
-          let start: RegExpExecArray | null;
-          while ((start = nonWhitespace.exec(span.text)) !== null) {
-            const startX = offsetX + start.index * charWidth;
-            let width = (nonWhitespace.lastIndex - start.index) * charWidth;
-
-            // Reached the edge of the minimap
-            if (startX > context.canvas.width) {
-              break;
-            }
-
-            // Limit width to edge of minimap
-            if (startX + width > context.canvas.width) {
-              width = context.canvas.width - startX;
-            }
-
-            // Scaled 2px buffer between lines
-            const yBuffer = 2 / Scale.SizeRatio;
-            const height = lineHeight - yBuffer;
-
-            context.fillStyle = info.color;
-            context.globalAlpha = 0.65; // Make the blocks a bit faded
-            context.beginPath();
-            context.rect(startX, offsetY, width, height);
-            context.fill();
-          }
-
-          offsetX += span.text.length * charWidth;
-          break;
+        let text = fullSpan.text;
+        if (nextBoundary && overflow > 0) {
+          text = fullSpan.text.slice(spanOffset, fullSpan.text.length - overflow);
+          spanExtendsBeyondLine = true;
+          spanOffset += text.length;
+          nextBoundary = this.nextBoundaryWithinLine(nextBoundary + 1);
+        } else {
+          text = fullSpan.text.slice(spanOffset);
+          spanExtendsBeyondLine = false;
         }
-      }
+
+        this.drawSpan(ctx, { ...fullSpan, text }, info, offsetX, innerLineCount);
+
+        if (spanExtendsBeyondLine) {
+          innerLineCount++;
+          offsetX = 0;
+        } else {
+          offsetX += text.length;
+        }
+
+      } while (spanExtendsBeyondLine);
+
+      innerLineOffset += fullSpan.text.length;
     }
+
+    this.set(lineNumber, {
+      ...line,
+      prevImageData: ctx.context.getImageData(
+        0,
+        ctx.offsetY,
+        context.canvas.width,
+        (innerLineCount + 1) * ctx.lineHeight
+      )
+    });
   }
 
   private getFontInfo(tags: string): FontInfo {
