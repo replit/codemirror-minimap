@@ -7,6 +7,7 @@ import { SelectionState, selections } from "./selections";
 import { TextState, text } from "./text";
 import { LinesState } from "./LinesState";
 import crelt from "crelt";
+import { GUTTER_WIDTH, drawLineGutter, GutterDecoration } from "./Gutters";
 
 const Theme = EditorView.theme({
   "&": {
@@ -121,16 +122,34 @@ const minimapClass = ViewPlugin.fromClass(
         lineHeight
       );
 
+      const gutters = this.view.state.facet(GutterDecoration);
+
       for (let i = startIndex; i < endIndex; i++) {
         const lines = this.view.state.field(LinesState);
         if (i >= lines.length) break;
 
         const drawContext = {
-          context,
+          offsetX: 0,
           offsetY,
+          context,
           lineHeight,
           charWidth,
         };
+
+        console.log(gutters);
+
+        if (gutters.length) {
+          /* Small leading buffer */
+          drawContext.offsetX += 2;
+
+          for (let gutter of gutters) {
+            drawLineGutter(gutter, drawContext, i + 1);
+            drawContext.offsetX += GUTTER_WIDTH;
+          }
+
+          /* Small trailing buffer */
+          drawContext.offsetX += 2;
+        }
 
         this.text.drawLine(drawContext, i + 1);
         this.selection.drawLine(drawContext, i + 1);
@@ -208,7 +227,7 @@ const minimapClass = ViewPlugin.fromClass(
   }
 );
 
-export function minimap(o: Options = {}): Extension {
+function minimap(o: Options = {}): Extension {
   return [
     Theme,
     Config.of(o),
@@ -219,3 +238,5 @@ export function minimap(o: Options = {}): Extension {
     Overlay,
   ];
 }
+
+export { minimap, GutterDecoration as MinimapGutterDecoration };

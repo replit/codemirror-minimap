@@ -3,4 +3,5 @@ export type DrawContext = {
   offsetY: number;
   lineHeight: number;
   charWidth: number;
+  offsetX: number;
 };

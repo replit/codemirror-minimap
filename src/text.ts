@@ -283,8 +283,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       return;
     }
 
-    let { context, charWidth, lineHeight, offsetY } = ctx;
-    let offsetX = 0;
+    let { context, charWidth, lineHeight, offsetX, offsetY } = ctx;
 
     let prevInfo: FontInfo | undefined;
     context.textBaseline = "ideographic";

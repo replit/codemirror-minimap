@@ -76,7 +76,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {
-    const { context, lineHeight, offsetY } = ctx;
+    const { context, lineHeight, offsetX, offsetY } = ctx;
     const severity = this.get(lineNumber);
     if (!severity) {
       return;
@@ -86,9 +86,9 @@ export class DiagnosticState extends LineBasedState<Severity> {
     context.globalAlpha = 0.65;
     context.beginPath();
     context.rect(
-      0,
+      offsetX,
       offsetY /* TODO Scaling causes anti-aliasing in rectangles */,
-      context.canvas.width,
+      context.canvas.width - offsetX,
       lineHeight
     );
     context.fillStyle = this.color(severity);
@@ -131,8 +131,8 @@ export class DiagnosticState extends LineBasedState<Severity> {
     return severity === "error"
       ? "#d11"
       : severity === "warning"
-      ? "orange"
-      : "#999";
+        ? "orange"
+        : "#999";
   }
 
   /** Sorts severity from most to least severe */

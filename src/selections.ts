@@ -137,14 +137,20 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {
-    const { context, lineHeight, charWidth, offsetY } = ctx;
+    let {
+      context,
+      lineHeight,
+      charWidth,
+      offsetX: startOffsetX,
+      offsetY
+    } = ctx;
     const selections = this.get(lineNumber);
     if (!selections) {
       return;
     }
 
     for (const selection of selections) {
-      const offsetX = selection.from * charWidth;
+      const offsetX = startOffsetX + selection.from * charWidth;
       const textWidth = (selection.to - selection.from) * charWidth;
       const fullWidth = context.canvas.width - offsetX;
 

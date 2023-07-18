@@ -1,14 +1,41 @@
 import { basicSetup } from "codemirror";
 import { javascript } from "@codemirror/lang-javascript";
-import { EditorState, Compartment, StateEffect } from "@codemirror/state";
+import { EditorState, Compartment, StateEffect, StateField } from "@codemirror/state";
 import { EditorView, drawSelection } from "@codemirror/view";
 import { linter, Diagnostic } from "@codemirror/lint";
 import { syntaxTree } from "@codemirror/language";
 import { oneDark } from "@codemirror/theme-one-dark";
+import { Change, diff } from '@codemirror/merge'
 
 import snippets from "./snippets";
 
-import { minimap } from "../src/index";
+import { minimap, MinimapGutterDecoration } from "../src/index";
+
+
+const diffState = StateField.define<{ original: string, changes: Array<Change> }>({
+  create: state => ({ original: state.doc.toString(), changes: [] }),
+  update: (value, tr) => {
+    if (!tr.docChanged) {
+      return value;
+    }
+
+    return {
+      original: value.original,
+      changes: Array.from(diff(value.original, tr.state.doc.toString()))
+    };
+  },
+  provide: f => MinimapGutterDecoration.compute([f], (state) => {
+    // state.field(f).changes
+    // TODO convert changes -> changed line information
+    // I'm just mocking this in for now
+    const gutter = {};
+    for (let i = 0; i < state.doc.lines; i++) {
+      gutter[i] = 'green'
+    }
+
+    return gutter;
+  })
+});
 
 (() => {
   /* Apply initial configuration from controls */
@@ -82,6 +109,7 @@ import { minimap } from "../src/index";
           lintingEnabled ? testLinter : [],
           showMinimap ? minimap({ showOverlay, displayText }) : [],
           wrap ? EditorView.lineWrapping : [],
+          diffState,
         ]),
       ],
     }),
