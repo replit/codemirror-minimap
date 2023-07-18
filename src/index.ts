@@ -136,8 +136,6 @@ const minimapClass = ViewPlugin.fromClass(
           charWidth,
         };
 
-        console.log(gutters);
-
         if (gutters.length) {
           /* Small leading buffer */
           drawContext.offsetX += 2;
