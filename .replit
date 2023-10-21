@@ -1,31 +1,13 @@
-run="pnpm run dev"
+run = "bun run dev"
 entrypoint = "index.ts"
-hidden = [".build", ".config"]
+modules = ["bun-1.0:v1-20230911-f253fb1"]
 
-
-[packager]
-language = "nodejs-pnpm"
-[packager.features]
-packageSearch = true
-guessImports = true
-
-[languages.js]
-pattern = "**/*.ts"
-[languages.js.languageServer]
-start = ["typescript-language-server", "--stdio"]
+hidden = [".config", "bun.lockb"]
 
 [nix]
 channel = "stable-22_11"
 
-[gitHubImport]
-requiredFiles = [".replit", "replit.nix", ".config"]
-
-[env]
-XDG_CONFIG_HOME = "$REPL_HOME/.config"
-PATH = "$REPL_HOME/node_modules/.bin:$REPL_HOME/.config/npm/node_global/bin"
-npm_config_prefix = "$REPL_HOME/.config/npm/node_global"
-
 [deployment]
-run = ["tsx", "index.ts"]
+build = ["sh", "-c", "mkdir .build && bun build index.ts > .build/index.js"]
+run = ["bun", ".build/index.js"]
 deploymentTarget = "cloudrun"
-ignorePorts = false

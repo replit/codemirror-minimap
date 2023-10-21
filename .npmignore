@@ -8,5 +8,6 @@
 .replit
 .upm
 .vscode
+bun.lockb
 
 replit.nix
