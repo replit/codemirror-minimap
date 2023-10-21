@@ -9,47 +9,68 @@ import { Change, diff } from '@codemirror/merge'
 
 import snippets from "./snippets";
 
-import { minimap, MinimapGutterDecoration } from "../src/index";
+import { showMinimap } from "../src/index";
 
-
-const diffState = StateField.define<{ original: string, changes: Array<Change> }>({
-  create: state => ({ original: state.doc.toString(), changes: [] }),
-  update: (value, tr) => {
-    if (!tr.docChanged) {
-      return value;
-    }
-
-    return {
-      original: value.original,
-      changes: Array.from(diff(value.original, tr.state.doc.toString()))
-    };
-  },
-  provide: f => MinimapGutterDecoration.compute([f], (state) => {
-    // state.field(f).changes
-    // TODO convert changes -> changed line information
-    // I'm just mocking this in for now
-    const gutter = {};
-    for (let i = 0; i < state.doc.lines; i++) {
-      gutter[i] = 'green'
-    }
-
-    return gutter;
+const BasicExtensions = [
+  basicSetup,
+  javascript(),
+  drawSelection(),
+  EditorState.allowMultipleSelections.of(true),
+  EditorView.contentAttributes.of({
+    /* Disabling grammarly */
+    "data-gramm": "false",
+    "data-gramm_editor": "false",
+    "data-enabled-grammarly": "false",
   })
+]
+
+const setShownState = StateEffect.define<boolean>();
+const shownState = StateField.define<boolean>({
+  create: () => getShowMinimap(window.location.hash),
+  update: (v, tr) => {
+    for (const ef of tr.effects) {
+      if (ef.is(setShownState)) {
+        v = ef.value;
+      }
+    }
+    return v;
+  }
 });
 
-(() => {
-  /* Apply initial configuration from controls */
-  const doc = getDoc(window.location.hash);
-  const showMinimap = getShowMinimap(window.location.hash);
-  const showOverlay = getShowOverlay(window.location.hash);
-  const lintingEnabled = getLintingEnabled(window.location.hash);
-  const displayText = getDisplayText(window.location.hash);
-  const wrap = getLineWrap(window.location.hash);
-  const mode = getMode(window.location.hash);
-  const themeCompartment = new Compartment();
-  const extensionCompartment = new Compartment();
+const setOverlayState = StateEffect.define<"always" | "mouse-over" | undefined>();
+const overlayState = StateField.define<"always" | "mouse-over" | undefined>({
+  create: () => getShowOverlay(window.location.hash),
+  update: (v, tr) => {
+    for (const ef of tr.effects) {
+      if (ef.is(setOverlayState)) {
+        v = ef.value;
+      }
+    }
+    return v;
+  }
+});
 
-  const testLinter = linter((view) => {
+const setDisplayTextState = StateEffect.define<"blocks" | "characters" | undefined>();
+const displayTextState = StateField.define<"blocks" | "characters" | undefined>({
+  create: () => getDisplayText(window.location.hash),
+  update: (v, tr) => {
+    for (const ef of tr.effects) {
+      if (ef.is(setDisplayTextState)) {
+        v = ef.value;
+      }
+    }
+    return v;
+  }
+});
+
+const wrapCompartment = new Compartment();
+function maybeWrap() {
+  return getLineWrap(window.location.hash) ? EditorView.lineWrapping : []
+}
+
+const lintCompartment = new Compartment();
+function maybeLint() {
+  return getLintingEnabled(window.location.hash) ? linter((view) => {
     let diagnostics: Diagnostic[] = [];
     syntaxTree(view.state)
       .cursor()
@@ -88,61 +109,88 @@ const diffState = StateField.define<{ original: string, changes: Array<Change> }
         }
       });
     return diagnostics;
-  });
+  }) : []
+}
 
-  const view = new EditorView({
-    state: EditorState.create({
-      doc,
-      extensions: [
-        basicSetup,
-        javascript(),
-        drawSelection(),
-        EditorState.allowMultipleSelections.of(true),
-        EditorView.contentAttributes.of({
-          /* Disabling grammarly */
-          "data-gramm": "false",
-          "data-gramm_editor": "false",
-          "data-enabled-grammarly": "false",
-        }),
-        themeCompartment.of(mode === "dark" ? oneDark : []),
-        extensionCompartment.of([
-          lintingEnabled ? testLinter : [],
-          showMinimap ? minimap({ showOverlay, displayText }) : [],
-          wrap ? EditorView.lineWrapping : [],
-          diffState,
-        ]),
+const themeCompartment = new Compartment();
+function maybeDark() {
+  return getMode(window.location.hash) === 'dark' ? oneDark : []
+}
+
+const diffState = StateField.define<{ original: string, changes: Array<Change> }>({
+  create: state => ({ original: state.doc.toString(), changes: [] }),
+  update: (value, tr) => {
+    if (!tr.docChanged) {
+      return value;
+    }
+
+    return {
+      original: value.original,
+      changes: Array.from(diff(value.original, tr.state.doc.toString()))
+    };
+  }
+});
+
+
+
+const view = new EditorView({
+  state: EditorState.create({
+    doc: getDoc(window.location.hash),
+    extensions: [
+      BasicExtensions,
+
+      [
+        shownState,
+        diffState,
+        overlayState,
+        displayTextState,
+        wrapCompartment.of(maybeWrap()),
+        lintCompartment.of(maybeLint()),
+        themeCompartment.of(maybeDark()),
       ],
-    }),
-    parent: document.getElementById("editor") as HTMLElement,
-  });
 
-  /* Listen to changes and apply updates from controls */
-  window.addEventListener("hashchange", (e: HashChangeEvent) => {
-    const prevDoc = getDoc(e.oldURL);
-    const newDoc = getDoc(e.newURL);
-    const showMinimap = getShowMinimap(e.newURL);
-    const showOverlay = getShowOverlay(window.location.hash);
-    const lintingEnabled = getLintingEnabled(window.location.hash);
-    const displayText = getDisplayText(window.location.hash);
-    const mode = getMode(window.location.hash);
-    const wrap = getLineWrap(window.location.hash);
+      showMinimap.compute([shownState, diffState, overlayState, displayTextState], (s) => {
+        if (!s.field(shownState, false)) {
+          return null;
+        }
 
-    view.dispatch({
-      changes:
-        prevDoc !== newDoc
-          ? { from: 0, to: view.state.doc.length, insert: newDoc }
-          : undefined,
-      effects: [
-        extensionCompartment.reconfigure([
-          lintingEnabled ? testLinter : [],
-          showMinimap ? minimap({ showOverlay, displayText }) : [],
-          wrap ? EditorView.lineWrapping : [],
-        ]),
-        themeCompartment.reconfigure(mode === "dark" ? oneDark : []),
-      ],
-    });
-  });
-})();
+        const create = () => {
+          const dom = document.createElement('div');
+          return { dom };
+        }
+
+        const showOverlay = s.field(overlayState, false);
+        const displayText = s.field(displayTextState, false);
+
+        // TODO convert diffState -> changed line information
+        // I'm just mocking this in for now
+        const gutter: Record<number, string> = {};
+        for (let i = 0; i < s.doc.lines; i++) {
+          gutter[i] = 'green'
+        }
+
+        return { create, showOverlay, displayText, gutters: [gutter] }
+      }),
+    ],
+  }),
+  parent: document.getElementById("editor") as HTMLElement,
+});
+
+/* Listen to changes and apply updates from controls */
+window.addEventListener("hashchange", (e: HashChangeEvent) => {
+  view.dispatch({
+    changes: { from: 0, to: view.state.doc.length, insert: getDoc(e.newURL) },
+    effects: [
+      setShownState.of(getShowMinimap(e.newURL)),
+      setOverlayState.of(getShowOverlay(e.newURL)),
+      setDisplayTextState.of(getDisplayText(e.newURL)),
+      wrapCompartment.reconfigure(maybeWrap()),
+      lintCompartment.reconfigure(maybeLint()),
+      themeCompartment.reconfigure(maybeDark()),
+    ]
+  })
+});
+
 
 /* Helpers */
 function getDoc(url: string): string {
@@ -155,7 +203,7 @@ function getDoc(url: string): string {
   return snippets.long;
 }
 function getShowMinimap(url: string): boolean {
-  return getHashValue("minimap", url) === "show";
+  return getHashValue("minimap", url) !== "hide";
 }
 function getShowOverlay(url: string): "always" | "mouse-over" | undefined {
   const value = getHashValue("overlay", url);

@@ -1,6 +1,7 @@
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Config, Scale } from "./Config";
 import crelt from "crelt";
+import { showMinimap } from ".";
 
 const Theme = EditorView.theme({
   ".cm-minimap-overlay-container": {
@@ -46,13 +47,19 @@ const SCALE = Scale.PixelMultiplier * Scale.SizeRatio;
 
 const OverlayView = ViewPlugin.fromClass(
   class {
-    private container: HTMLElement;
-    private dom: HTMLElement;
+    private container: HTMLElement | undefined;
+    private dom: HTMLElement | undefined;
 
     private _isDragging: boolean = false;
     private _dragStartY: number | undefined;
 
     public constructor(private view: EditorView) {
+      if (view.state.facet(showMinimap)) {
+        this.create(view)
+      }
+    }
+
+    private create(view: EditorView) {
       this.container = crelt("div", { class: "cm-minimap-overlay-container" });
       this.dom = crelt("div", { class: "cm-minimap-overlay" });
       this.container.appendChild(this.dom);
@@ -63,7 +70,7 @@ const OverlayView = ViewPlugin.fromClass(
       window.addEventListener("mousemove", this.onMouseMove.bind(this));
 
       // Attach the overlay elements to the minimap
-      const inner = this.view.dom.querySelector(".cm-minimap-inner");
+      const inner = view.dom.querySelector(".cm-minimap-inner");
       if (inner) {
         inner.appendChild(this.container);
       }
@@ -74,7 +81,28 @@ const OverlayView = ViewPlugin.fromClass(
       this.computeTop();
     }
 
+    private remove() {
+      if (this.container) {
+        this.container.removeEventListener("mousedown", this.onMouseDown);
+        window.removeEventListener("mouseup", this.onMouseUp);
+        window.removeEventListener("mousemove", this.onMouseMove);
+        this.container.remove();
+      }
+    }
+
     update(update: ViewUpdate) {
+      const prev = update.startState.facet(showMinimap);
+      const now = update.state.facet(showMinimap);
+
+      if (prev && !now) {
+        this.remove();
+        return;
+      }
+
+      if (!prev && now) {
+        this.create(update.view)
+      }
+
       this.computeShowOverlay();
 
       if (update.geometryChanged) {
@@ -84,12 +112,16 @@ const OverlayView = ViewPlugin.fromClass(
     }
 
     public computeHeight() {
+      if (!this.dom) {
+        return
+      }
+
       const height = this.view.dom.clientHeight / SCALE;
       this.dom.style.height = height + "px";
     }
 
     public computeTop() {
-      if (!this._isDragging) {
+      if (!this._isDragging && this.dom) {
         const { clientHeight, scrollHeight, scrollTop } = this.view.scrollDOM;
 
         const maxScrollTop = scrollHeight - clientHeight;
@@ -107,6 +139,10 @@ const OverlayView = ViewPlugin.fromClass(
     }
 
     public computeShowOverlay() {
+      if (!this.container) {
+        return;
+      }
+
       const { showOverlay } = this.view.state.facet(Config);
 
       if (showOverlay === "mouse-over") {
@@ -124,6 +160,10 @@ const OverlayView = ViewPlugin.fromClass(
     }
 
     private onMouseDown(event: MouseEvent) {
+      if (!this.container) {
+        return;
+      }
+
       // Ignore right click
       if (event.button === 2) {
         return;
@@ -154,7 +194,7 @@ const OverlayView = ViewPlugin.fromClass(
 
     private onMouseUp(_event: MouseEvent) {
       // Stop dragging on mouseup
-      if (this._isDragging) {
+      if (this._isDragging && this.container) {
         this._dragStartY = undefined;
         this._isDragging = false;
         this.container.classList.remove("cm-minimap-overlay-active");
@@ -162,7 +202,7 @@ const OverlayView = ViewPlugin.fromClass(
     }
 
     private onMouseMove(event: MouseEvent) {
-      if (!this._isDragging) {
+      if (!this._isDragging || !this.dom) {
         return;
       }
 
@@ -243,10 +283,7 @@ const OverlayView = ViewPlugin.fromClass(
     }
 
     public destroy() {
-      this.container.removeEventListener("mousedown", this.onMouseDown);
-      window.removeEventListener("mouseup", this.onMouseUp);
-      window.removeEventListener("mousemove", this.onMouseMove);
-      this.container.remove();
+      this.remove();
     }
   },
   {
