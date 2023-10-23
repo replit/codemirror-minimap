@@ -24,3 +24,8 @@ requiredFiles = [".replit", "replit.nix", ".config"]
 XDG_CONFIG_HOME = "$REPL_HOME/.config"
 PATH = "$REPL_HOME/node_modules/.bin:$REPL_HOME/.config/npm/node_global/bin"
 npm_config_prefix = "$REPL_HOME/.config/npm/node_global"
+
+[deployment]
+run = ["tsx", "index.ts"]
+deploymentTarget = "cloudrun"
+ignorePorts = false

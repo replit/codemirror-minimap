@@ -1,20 +1,10 @@
-import { Facet } from "@codemirror/state";
 import { DrawContext } from "./types";
 
 const GUTTER_WIDTH = 4;
 
 type Line = number;
 type Color = string;
-type Gutter = Record<Line, Color>;
-
-/** 
- * Enables a gutter to be drawn on the given line to the left
- * of the minimap, with the given color. Accepts all valid CSS
- * color values.
- */
-const GutterDecoration = Facet.define<Gutter | null, Array<Gutter>>({
-  combine: (vals) => vals.filter(v => v && Object.keys(v).length > 0) as Array<Gutter>
-});
+export type Gutter = Record<Line, Color>;
 
 
 /** 
@@ -34,4 +24,4 @@ function drawLineGutter(gutter: Record<Line, Color>, ctx: DrawContext, lineNumbe
 }
 
 
-export { GUTTER_WIDTH, GutterDecoration, drawLineGutter }
+export { GUTTER_WIDTH, drawLineGutter }

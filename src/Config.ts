@@ -1,5 +1,7 @@
 import { Facet, combineConfig } from "@codemirror/state";
 import { DOMEventMap, EditorView } from "@codemirror/view";
+import { MinimapConfig } from ".";
+import { Gutter } from "./Gutters";
 
 type EventHandler<event extends keyof DOMEventMap> = (
   e: DOMEventMap[event],
@@ -24,14 +26,36 @@ type Options = {
    * Defaults to `always`.
    */
   showOverlay?: "always" | "mouse-over";
+
+  /** 
+   * Enables a gutter to be drawn on the given line to the left
+   * of the minimap, with the given color. Accepts all valid CSS
+   * color values.
+   */
+  gutters?: Array<Gutter>
 };
 
-const Config = Facet.define<Options, Required<Options>>({
-  combine: (configs) => {
+const Config = Facet.define<MinimapConfig | null, Required<Options>>({
+  combine: (c) => {
+    const configs: Array<Omit<MinimapConfig, 'create'>> = [];
+    for (let config of c) {
+      if (!config) {
+        continue;
+      }
+
+      const { create, gutters, ...rest } = config;
+
+      configs.push({
+        ...rest,
+        gutters: gutters ? gutters.filter(v => Object.keys(v).length > 0) : undefined,
+      });
+    }
+
     return combineConfig(configs, {
       displayText: "characters",
       eventHandlers: {},
       showOverlay: "always",
+      gutters: [],
     });
   },
 });

@@ -1,4 +1,4 @@
-import { Extension } from "@codemirror/state";
+import { Facet } from "@codemirror/state";
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Overlay } from "./Overlay";
 import { Config, Options, Scale } from "./Config";
@@ -7,7 +7,7 @@ import { SelectionState, selections } from "./selections";
 import { TextState, text } from "./text";
 import { LinesState } from "./LinesState";
 import crelt from "crelt";
-import { GUTTER_WIDTH, drawLineGutter, GutterDecoration } from "./Gutters";
+import { GUTTER_WIDTH, drawLineGutter } from "./Gutters";
 
 const Theme = EditorView.theme({
   "&": {
@@ -41,33 +41,48 @@ const WIDTH_RATIO = 6;
 
 const minimapClass = ViewPlugin.fromClass(
   class {
-    private dom: HTMLElement;
-    private inner: HTMLElement;
-    private canvas: HTMLCanvasElement;
-
-    private view: EditorView;
+    private dom: HTMLElement | undefined;
+    private inner: HTMLElement | undefined;
+    private canvas: HTMLCanvasElement | undefined;
 
     public text: TextState;
     public selection: SelectionState;
     public diagnostic: DiagnosticState;
 
-    public constructor(view: EditorView) {
-      this.view = view;
-
+    public constructor(private view: EditorView) {
       this.text = text(view);
       this.selection = selections(view);
       this.diagnostic = diagnostics(view);
 
-      this.dom = crelt("div", { class: "cm-gutters cm-minimap-gutter" });
+      if (view.state.facet(showMinimap)) {
+        this.create(view)
+      }
+    }
+
+    private create(view: EditorView) {
+      const config = view.state.facet(showMinimap)
+      if (!config) {
+        throw Error('Expected nonnull');
+      }
+
       this.inner = crelt("div", { class: "cm-minimap-inner" });
       this.canvas = crelt("canvas") as HTMLCanvasElement;
 
+      this.dom = config.create(view).dom;
+      this.dom.classList.add('cm-gutters');
+      this.dom.classList.add('cm-minimap-gutter');
+
       this.inner.appendChild(this.canvas);
       this.dom.appendChild(this.inner);
+
+      // For now let's keep this same behavior. We might want to change
+      // this in the future and have the extension figure out how to mount.
+      // Or expose some more generic right gutter api and use that
       this.view.scrollDOM.insertBefore(
         this.dom,
         this.view.contentDOM.nextSibling
       );
+
 
       for (const key in this.view.state.facet(Config).eventHandlers) {
         const handler = this.view.state.facet(Config).eventHandlers[key];
@@ -77,7 +92,25 @@ const minimapClass = ViewPlugin.fromClass(
       }
     }
 
+    private remove() {
+      if (this.dom) {
+        this.dom.remove();
+      }
+    }
+
     update(update: ViewUpdate) {
+      const prev = update.startState.facet(showMinimap);
+      const now = update.state.facet(showMinimap);
+
+      if (prev && !now) {
+        this.remove();
+        return;
+      }
+
+      if (!prev && now) {
+        this.create(update.view)
+      }
+
       this.text.update(update);
       this.selection.update(update);
       this.diagnostic.update(update);
@@ -94,6 +127,11 @@ const minimapClass = ViewPlugin.fromClass(
     }
 
     render() {
+      // If we don't have elements to draw to exit early
+      if (!this.dom || !this.canvas || !this.inner) {
+        return;
+      }
+
       this.text.beforeDraw();
 
       this.updateBoxShadow();
@@ -122,7 +160,7 @@ const minimapClass = ViewPlugin.fromClass(
         lineHeight
       );
 
-      const gutters = this.view.state.facet(GutterDecoration);
+      const gutters = this.view.state.facet(Config).gutters;
 
       for (let i = startIndex; i < endIndex; i++) {
         const lines = this.view.state.field(LinesState);
@@ -193,6 +231,10 @@ const minimapClass = ViewPlugin.fromClass(
     }
 
     private updateBoxShadow() {
+      if (!this.canvas) {
+        return;
+      }
+
       const { clientWidth, scrollWidth, scrollLeft } = this.view.scrollDOM;
 
       if (clientWidth + scrollLeft < scrollWidth) {
@@ -203,7 +245,7 @@ const minimapClass = ViewPlugin.fromClass(
     }
 
     destroy() {
-      this.dom.remove();
+      this.remove()
     }
   },
   {
@@ -225,16 +267,33 @@ const minimapClass = ViewPlugin.fromClass(
   }
 );
 
-function minimap(o: Options = {}): Extension {
-  return [
-    Theme,
-    Config.of(o),
-    LinesState,
-
-    minimapClass, // TODO, maybe can codemirror-ify this one better
-
-    Overlay,
-  ];
+export interface MinimapConfig extends Options {
+  /** 
+   * A function that creates the element that contains the minimap
+   */
+  create: (view: EditorView) => { dom: HTMLElement };
 }
 
-export { minimap, GutterDecoration as MinimapGutterDecoration };
+
+/** 
+ * Facet used to show a minimap in the right gutter of the editor using the
+ * provided configuration.
+ * 
+ * If you return `null`, a minimap will not be shown.
+ */
+const showMinimap = Facet.define<MinimapConfig | null, MinimapConfig | null>({
+  combine: (c) => c.find(o => o !== null) ?? null,
+  enables: (f) => {
+    return [
+      [
+        Config.compute([f], (s) => s.facet(f)),
+        Theme,
+        LinesState,
+        minimapClass, // TODO, codemirror-ify this one better
+        Overlay,
+      ]
+    ]
+  }
+})
+
+export { showMinimap };
