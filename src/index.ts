@@ -69,7 +69,8 @@ const minimapClass = ViewPlugin.fromClass(
       this.canvas = crelt("canvas") as HTMLCanvasElement;
 
       this.dom = config.create(view).dom;
-      this.dom.classList.add('cm-minimap-gutter')
+      this.dom.classList.add('cm-gutters');
+      this.dom.classList.add('cm-minimap-gutter');
 
       this.inner.appendChild(this.canvas);
       this.dom.appendChild(this.inner);
