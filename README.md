@@ -19,7 +19,7 @@
 ## Installation
 
 ```
-pnpm i @replit/codemirror-minimap
+bun i @replit/codemirror-minimap
 ```
 
 ## Usage
@@ -84,11 +84,11 @@ minimap({
 To build from source:
 
 ```
-pnpm build
+bun build
 ```
 
 To publish a new version to NPM registry:
 
 ```
-pnpm publish
+npm publish
 ```
