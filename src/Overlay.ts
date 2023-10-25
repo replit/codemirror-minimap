@@ -1,7 +1,6 @@
 import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
 import { Config, Scale } from "./Config";
 import crelt from "crelt";
-import { showMinimap } from ".";
 
 const Theme = EditorView.theme({
   ".cm-minimap-overlay-container": {
@@ -54,8 +53,8 @@ const OverlayView = ViewPlugin.fromClass(
     private _dragStartY: number | undefined;
 
     public constructor(private view: EditorView) {
-      if (view.state.facet(showMinimap)) {
-        this.create(view)
+      if (view.state.facet(Config).enabled) {
+        this.create(view);
       }
     }
 
@@ -91,8 +90,8 @@ const OverlayView = ViewPlugin.fromClass(
     }
 
     update(update: ViewUpdate) {
-      const prev = update.startState.facet(showMinimap);
-      const now = update.state.facet(showMinimap);
+      const prev = update.startState.facet(Config).enabled;
+      const now = update.state.facet(Config).enabled;
 
       if (prev && !now) {
         this.remove();

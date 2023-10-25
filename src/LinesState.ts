@@ -1,13 +1,13 @@
 import { foldEffect, foldedRanges, unfoldEffect } from "@codemirror/language";
 import { StateField, EditorState, Transaction } from "@codemirror/state";
-import { showMinimap } from ".";
+import { Config } from "./Config";
 
 type Span = { from: number; to: number; folded: boolean };
 type Line = Array<Span>;
 type Lines = Array<Line>;
 
 function computeLinesState(state: EditorState): Lines {
-  if (!state.facet(showMinimap)) {
+  if (!state.facet(Config).enabled) {
     return [];
   }
 
