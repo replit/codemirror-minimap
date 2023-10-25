@@ -9,6 +9,8 @@ type EventHandler<event extends keyof DOMEventMap> = (
 ) => void;
 
 type Options = {
+  enabled: boolean;
+
   /**
    * Determines how to render text. Defaults to `characters`.
    */
@@ -27,17 +29,17 @@ type Options = {
    */
   showOverlay?: "always" | "mouse-over";
 
-  /** 
+  /**
    * Enables a gutter to be drawn on the given line to the left
    * of the minimap, with the given color. Accepts all valid CSS
    * color values.
    */
-  gutters?: Array<Gutter>
+  gutters?: Array<Gutter>;
 };
 
 const Config = Facet.define<MinimapConfig | null, Required<Options>>({
   combine: (c) => {
-    const configs: Array<Omit<MinimapConfig, 'create'>> = [];
+    const configs: Array<Options> = [];
     for (let config of c) {
       if (!config) {
         continue;
@@ -47,11 +49,15 @@ const Config = Facet.define<MinimapConfig | null, Required<Options>>({
 
       configs.push({
         ...rest,
-        gutters: gutters ? gutters.filter(v => Object.keys(v).length > 0) : undefined,
+        enabled: true,
+        gutters: gutters
+          ? gutters.filter((v) => Object.keys(v).length > 0)
+          : undefined,
       });
     }
 
     return combineConfig(configs, {
+      enabled: configs.length > 0,
       displayText: "characters",
       eventHandlers: {},
       showOverlay: "always",

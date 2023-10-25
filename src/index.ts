@@ -267,8 +267,8 @@ const minimapClass = ViewPlugin.fromClass(
   }
 );
 
-export interface MinimapConfig extends Options {
-  /** 
+export interface MinimapConfig extends Omit<Options, "enabled"> {
+  /**
    * A function that creates the element that contains the minimap
    */
   create: (view: EditorView) => { dom: HTMLElement };
