@@ -8,6 +8,7 @@ node_modules/
 .upm
 .vscode
 .yarn-cache
+bun.lockb
 
 npm-debug.log
 yarn-error.log
