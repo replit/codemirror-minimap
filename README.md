@@ -26,13 +26,26 @@ bun i @replit/codemirror-minimap
 
 ```typescript
 import { basicSetup, EditorView } from 'codemirror';
-import { minimap } from "@replit/codemirror-minimap"
+import { showMinimap } from "@replit/codemirror-minimap"
+
+let create = (v: EditorView) => {
+  const dom = document.createElement('div');
+  return { dom }
+}
 
 let view = new EditorView({
   doc: "",
   extensions: [
     basicSetup,
-    minimap(),
+    showMinimap.compute(['doc'], (state) => {
+      return {
+        create,
+        /* optional */
+        displayText: 'blocks',
+        showOverlay: 'always',
+        gutters: [ { 1: '#00FF00', 2: '#00FF00' } ],
+      }
+    }),
   ],
   parent: document.querySelector('#editor'),
 })
@@ -49,9 +62,9 @@ The minimap extension exposes a few configuration options:
  * displayText?: "blocks" | "characters";
  * Defaults to "characters"
  */
-minimap({
-    displayText: 'blocks'
-})
+{
+  displayText: 'blocks'
+}
 ```
 
 **`eventHandlers`**: attach event handlers to the minimap container element
@@ -60,11 +73,11 @@ minimap({
 /**
  * eventHandlers?: {[event in keyof DOMEventMap]?: EventHandler<event>}
  */
-minimap({
+{
   eventHandlers: {
     'contextmenu': (e) => onContextMenu(e)
   }
-})
+}
 ```
 
 **`showOverlay`**: customize when the overlay showing the current viewport is visible
@@ -74,9 +87,21 @@ minimap({
  * showOverlay?: "always" | "mouse-over";
  * Defaults to "always"
  */
-minimap({
-    showOverlay: 'mouse-over'
-})
+{
+  showOverlay: 'mouse-over'
+}
+```
+
+**`gutters`**: display a gutter on the left side of the minimap at specific lines
+
+```typescript
+/**
+ * gutters?: Array<Record<number, string>>
+ * Where `number` is line number, and `string` is a color
+ */
+{
+  gutters: [ { 1: '#00FF00', 2: 'green', 3: 'rgb(0, 100, 50)' } ]
+}
 ```
 
 ## Build and Publish
