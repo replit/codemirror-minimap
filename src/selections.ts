@@ -2,6 +2,7 @@ import { LineBasedState } from "./linebasedstate";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { LinesState, foldsChanged } from "./LinesState";
 import { DrawContext } from "./types";
+import { Config } from "./Config";
 
 type Selection = { from: number; to: number; extends: boolean };
 type DrawInfo = { backgroundColor: string };
@@ -18,6 +19,11 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
   }
 
   private shouldUpdate(update: ViewUpdate) {
+    // If the minimap is disabled
+    if (!update.state.facet(Config).enabled) {
+      return false;
+    }
+
     // If the doc changed
     if (update.docChanged) {
       return true;
@@ -45,6 +51,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
     if (!this.shouldUpdate(update)) {
       return;
     }
+
     this.map.clear();
 
     /* If class list has changed, clear and recalculate the selection style */
@@ -142,7 +149,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
       lineHeight,
       charWidth,
       offsetX: startOffsetX,
-      offsetY
+      offsetY,
     } = ctx;
     const selections = this.get(lineNumber);
     if (!selections) {

@@ -9,6 +9,7 @@ import {
 import { LineBasedState } from "./linebasedstate";
 import { DrawContext } from "./types";
 import { Lines, LinesState, foldsChanged } from "./LinesState";
+import { Config } from "./Config";
 
 type Severity = Diagnostic["severity"];
 
@@ -20,6 +21,11 @@ export class DiagnosticState extends LineBasedState<Severity> {
   }
 
   private shouldUpdate(update: ViewUpdate) {
+    // If the minimap is disabled
+    if (!update.state.facet(Config).enabled) {
+      return false;
+    }
+
     // If the doc changed
     if (update.docChanged) {
       return true;
@@ -131,8 +137,8 @@ export class DiagnosticState extends LineBasedState<Severity> {
     return severity === "error"
       ? "#d11"
       : severity === "warning"
-        ? "orange"
-        : "#999";
+      ? "orange"
+      : "#999";
   }
 
   /** Sorts severity from most to least severe */

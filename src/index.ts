@@ -55,22 +55,22 @@ const minimapClass = ViewPlugin.fromClass(
       this.diagnostic = diagnostics(view);
 
       if (view.state.facet(showMinimap)) {
-        this.create(view)
+        this.create(view);
       }
     }
 
     private create(view: EditorView) {
-      const config = view.state.facet(showMinimap)
+      const config = view.state.facet(showMinimap);
       if (!config) {
-        throw Error('Expected nonnull');
+        throw Error("Expected nonnull");
       }
 
       this.inner = crelt("div", { class: "cm-minimap-inner" });
       this.canvas = crelt("canvas") as HTMLCanvasElement;
 
       this.dom = config.create(view).dom;
-      this.dom.classList.add('cm-gutters');
-      this.dom.classList.add('cm-minimap-gutter');
+      this.dom.classList.add("cm-gutters");
+      this.dom.classList.add("cm-minimap-gutter");
 
       this.inner.appendChild(this.canvas);
       this.dom.appendChild(this.inner);
@@ -82,7 +82,6 @@ const minimapClass = ViewPlugin.fromClass(
         this.dom,
         this.view.contentDOM.nextSibling
       );
-
 
       for (const key in this.view.state.facet(Config).eventHandlers) {
         const handler = this.view.state.facet(Config).eventHandlers[key];
@@ -108,13 +107,15 @@ const minimapClass = ViewPlugin.fromClass(
       }
 
       if (!prev && now) {
-        this.create(update.view)
+        this.create(update.view);
       }
 
-      this.text.update(update);
-      this.selection.update(update);
-      this.diagnostic.update(update);
-      this.render();
+      if (now) {
+        this.text.update(update);
+        this.selection.update(update);
+        this.diagnostic.update(update);
+        this.render();
+      }
     }
 
     getWidth(): number {
@@ -245,7 +246,7 @@ const minimapClass = ViewPlugin.fromClass(
     }
 
     destroy() {
-      this.remove()
+      this.remove();
     }
   },
   {
@@ -274,15 +275,14 @@ export interface MinimapConfig extends Omit<Options, "enabled"> {
   create: (view: EditorView) => { dom: HTMLElement };
 }
 
-
-/** 
+/**
  * Facet used to show a minimap in the right gutter of the editor using the
  * provided configuration.
- * 
+ *
  * If you return `null`, a minimap will not be shown.
  */
 const showMinimap = Facet.define<MinimapConfig | null, MinimapConfig | null>({
-  combine: (c) => c.find(o => o !== null) ?? null,
+  combine: (c) => c.find((o) => o !== null) ?? null,
   enables: (f) => {
     return [
       [
@@ -291,9 +291,9 @@ const showMinimap = Facet.define<MinimapConfig | null, MinimapConfig | null>({
         LinesState,
         minimapClass, // TODO, codemirror-ify this one better
         Overlay,
-      ]
-    ]
-  }
-})
+      ],
+    ];
+  },
+});
 
 export { showMinimap };
