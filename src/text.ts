@@ -23,7 +23,10 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     super(view);
 
     this._themeClasses = new Set(view.dom.classList.values());
-    this.updateImpl(view.state);
+
+    if (view.state.facet(Config).enabled) {
+      this.updateImpl(view.state);
+    }
   }
 
   private shouldUpdate(update: ViewUpdate) {

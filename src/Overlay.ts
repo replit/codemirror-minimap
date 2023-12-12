@@ -99,20 +99,22 @@ const OverlayView = ViewPlugin.fromClass(
       }
 
       if (!prev && now) {
-        this.create(update.view)
+        this.create(update.view);
       }
 
-      this.computeShowOverlay();
+      if (now) {
+        this.computeShowOverlay();
 
-      if (update.geometryChanged) {
-        this.computeHeight();
-        this.computeTop();
+        if (update.geometryChanged) {
+          this.computeHeight();
+          this.computeTop();
+        }
       }
     }
 
     public computeHeight() {
       if (!this.dom) {
-        return
+        return;
       }
 
       const height = this.view.dom.clientHeight / SCALE;
