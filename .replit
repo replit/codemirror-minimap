@@ -11,3 +11,7 @@ channel = "stable-22_11"
 build = ["sh", "-c", "mkdir .build && bun build index.ts > .build/index.js"]
 run = ["bun", ".build/index.js"]
 deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 5173
+externalPort = 80

@@ -9,6 +9,12 @@ type EventHandler<event extends keyof DOMEventMap> = (
 ) => void;
 
 type Options = {
+  /** 
+   * Controls whether the minimap should be hidden on mouseout.
+   * Defaults to `false`.
+   */
+  autohide?: boolean;
+
   enabled: boolean;
 
   /**
@@ -62,6 +68,7 @@ const Config = Facet.define<MinimapConfig | null, Required<Options>>({
       eventHandlers: {},
       showOverlay: "always",
       gutters: [],
+      autohide: false,
     });
   },
 });

@@ -22,6 +22,13 @@ const Theme = EditorView.theme({
     right: 0,
     top: 0,
   },
+  '& .cm-minimap-autohide': {
+    opacity: 0.0,
+    transition: 'opacity 0.3s',
+  },
+  '& .cm-minimap-autohide:hover': {
+    opacity: 1.0,
+  },
   "& .cm-minimap-inner": {
     height: "100%",
     position: "absolute",
@@ -88,6 +95,10 @@ const minimapClass = ViewPlugin.fromClass(
         if (handler) {
           this.dom.addEventListener(key, (e) => handler(e, this.view));
         }
+      }
+
+      if (config.autohide) {
+        this.dom.classList.add('cm-minimap-autohide');
       }
     }
 
