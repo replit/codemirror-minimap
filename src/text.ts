@@ -1,23 +1,26 @@
-import { LineBasedState } from "./linebasedstate";
-import { Highlighter, highlightTree } from "@lezer/highlight";
-import { ChangedRange, Tree, TreeFragment } from "@lezer/common";
-import { highlightingFor, language } from "@codemirror/language";
-import { EditorView, ViewUpdate } from "@codemirror/view";
-import { DrawContext } from "./types";
-import { Config, Options, Scale } from "./Config";
-import { LinesState, foldsChanged } from "./LinesState";
-import crelt from "crelt";
-import { ChangeSet, EditorState } from "@codemirror/state";
+import { LineBasedState } from './linebasedstate';
+import type { Highlighter } from '@lezer/highlight';
+import { highlightTree } from '@lezer/highlight';
+import type { ChangedRange, Tree } from '@lezer/common';
+import { TreeFragment } from '@lezer/common';
+import { highlightingFor, language } from '@codemirror/language';
+import type { EditorView, ViewUpdate } from '@codemirror/view';
+import type { DrawContext } from './types';
+import type { Options } from './Config';
+import { Config, Scale } from './Config';
+import { LinesState, foldsChanged } from './LinesState';
+import crelt from 'crelt';
+import type { ChangeSet, EditorState } from '@codemirror/state';
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; lineHeight: number };
 
 export class TextState extends LineBasedState<Array<TagSpan>> {
   private _previousTree: Tree | undefined;
-  private _displayText: Required<Options>["displayText"] | undefined;
+  private _displayText: Required<Options>['displayText'] | undefined;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
   private _themeClasses: Set<string> | undefined;
-  private _highlightingCallbackId: number | undefined;
+  private _highlightingCallbackId: NodeJS.Timeout | number | undefined;
 
   public constructor(view: EditorView) {
     super(view);
@@ -59,9 +62,11 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     if (this._highlightingCallbackId) {
-      typeof window.requestIdleCallback !== "undefined"
-        ? cancelIdleCallback(this._highlightingCallbackId)
-        : clearTimeout(this._highlightingCallbackId);
+      if (typeof window.requestIdleCallback !== 'undefined') {
+        cancelIdleCallback(Number(this._highlightingCallbackId));
+      } else {
+        clearTimeout(this._highlightingCallbackId);
+      }
     }
 
     this.updateImpl(update.state, update.changes);
@@ -85,12 +90,12 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
       const changedRanges: Array<ChangedRange> = [];
       changes.iterChangedRanges((fromA, toA, fromB, toB) =>
-        changedRanges.push({ fromA, toA, fromB, toB })
+        changedRanges.push({ fromA, toA, fromB, toB }),
       );
 
       treeFragments = TreeFragment.applyChanges(
         previousFragments,
-        changedRanges
+        changedRanges,
       );
     }
 
@@ -153,7 +158,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       const mmLineTop = Math.max(1, Math.floor(vpLineTop - mmLineRatio));
       const mmLineBottom = Math.min(
         vpLineBottom + Math.floor(mmLineCount - mmLineRatio),
-        state.doc.lines
+        state.doc.lines,
       );
 
       // Highlight the in-view lines synchronously
@@ -164,7 +169,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
           highlights.push({ from, to, tags });
         },
         state.doc.line(mmLineTop).from,
-        state.doc.line(mmLineBottom).to
+        state.doc.line(mmLineBottom).to,
       );
     }
 
@@ -182,15 +187,16 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
         this._highlightingCallbackId = undefined;
       }
     };
+
     this._highlightingCallbackId =
-      typeof window.requestIdleCallback !== "undefined"
+      typeof window.requestIdleCallback !== 'undefined'
         ? requestIdleCallback(highlightingCallback)
         : setTimeout(highlightingCallback);
   }
 
   private updateMapImpl(
     state: EditorState,
-    highlights: Array<{ from: number; to: number; tags: string }>
+    highlights: Array<{ from: number; to: number; tags: string }>,
   ) {
     this.map.clear();
 
@@ -209,7 +215,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
         // Append a placeholder for a folded span
         if (span.folded) {
-          spans.push({ text: "…", tags: "" });
+          spans.push({ text: '…', tags: '' });
           continue;
         }
 
@@ -225,7 +231,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
           // Append unstyled text before the highlight begins
           if (from > position) {
-            spans.push({ text: docToString.slice(position, from), tags: "" });
+            spans.push({ text: docToString.slice(position, from), tags: '' });
           }
 
           // A highlight may start before and extend beyond the current span
@@ -249,7 +255,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
         if (position !== span.to) {
           spans.push({
             text: docToString.slice(position, span.to),
-            tags: "",
+            tags: '',
           });
         }
       }
@@ -264,15 +270,15 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     charWidth: number;
     lineHeight: number;
   } {
-    const { color, font, lineHeight } = this.getFontInfo("");
+    const { color, font, lineHeight } = this.getFontInfo('');
 
-    context.textBaseline = "ideographic";
+    context.textBaseline = 'ideographic';
     context.fillStyle = color;
     context.font = font;
 
     return {
-      charWidth: context.measureText("_").width,
-      lineHeight: lineHeight,
+      charWidth: context.measureText('_').width,
+      lineHeight,
     };
   }
 
@@ -289,7 +295,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     let { context, charWidth, lineHeight, offsetX, offsetY } = ctx;
 
     let prevInfo: FontInfo | undefined;
-    context.textBaseline = "ideographic";
+    context.textBaseline = 'ideographic';
 
     for (const span of line) {
       const info = this.getFontInfo(span.tags);
@@ -307,7 +313,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       lineHeight = Math.max(lineHeight, info.lineHeight);
 
       switch (this._displayText) {
-        case "characters": {
+        case 'characters': {
           // TODO: `fillText` takes up the majority of profiling time in `render`
           // Try speeding it up with `drawImage`
           // https://stackoverflow.com/questions/8237030/html5-canvas-faster-filltext-vs-drawimage/8237081
@@ -317,7 +323,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
           break;
         }
 
-        case "blocks": {
+        case 'blocks': {
           const nonWhitespace = /\S+/g;
           let start: RegExpExecArray | null;
           while ((start = nonWhitespace.exec(span.text)) !== null) {
@@ -359,11 +365,11 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     // Create a mock token wrapped in a cm-line
-    const mockToken = crelt("span", { class: tags });
+    const mockToken = crelt('span', { class: tags });
     const mockLine = crelt(
-      "div",
-      { class: "cm-line", style: "display: none" },
-      mockToken
+      'div',
+      { class: 'cm-line', style: 'display: none' },
+      mockToken,
     );
     this.view.contentDOM.appendChild(mockLine);
 
@@ -379,6 +385,7 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
 
     // Clean up and return
     this.view.contentDOM.removeChild(mockLine);
+
     return result;
   }
 
@@ -392,8 +399,8 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
     }
 
     // Ignore certain classes being added/removed
-    previous.delete("cm-focused");
-    now.delete("cm-focused");
+    previous.delete('cm-focused');
+    now.delete('cm-focused');
 
     if (previous.size !== now.size) {
       return true;

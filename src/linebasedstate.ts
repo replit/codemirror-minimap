@@ -1,4 +1,4 @@
-import { EditorView } from "@codemirror/view";
+import type { EditorView } from '@codemirror/view';
 
 // TODO: renamed this file because something's weird with codemirror build
 

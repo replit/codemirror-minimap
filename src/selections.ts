@@ -1,8 +1,8 @@
-import { LineBasedState } from "./linebasedstate";
-import { EditorView, ViewUpdate } from "@codemirror/view";
-import { LinesState, foldsChanged } from "./LinesState";
-import { DrawContext } from "./types";
-import { Config } from "./Config";
+import type { EditorView, ViewUpdate } from '@codemirror/view';
+import { Config } from './Config';
+import { LinesState, foldsChanged } from './LinesState';
+import { LineBasedState } from './linebasedstate';
+import type { DrawContext } from './types';
 
 type Selection = { from: number; to: number; extends: boolean };
 type DrawInfo = { backgroundColor: string };
@@ -64,7 +64,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
 
     let selectionIndex = 0;
     for (const [index, line] of update.state.field(LinesState).entries()) {
-      const selections: Array<Selection> = [];
+      const selectionList: Array<Selection> = [];
 
       let offset = 0;
       for (const span of line) {
@@ -93,7 +93,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
             extends: range.to > span.to,
           };
 
-          const lastSelection = selections.slice(-1)[0];
+          const lastSelection = selectionList.slice(-1)[0];
           if (lastSelection && lastSelection.to === selection.from) {
             // The selection in this span may just be a continuation of the
             // selection in the previous span
@@ -106,7 +106,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
               to = lastSelection.to;
             }
 
-            selections[selections.length - 1] = {
+            selectionList[selectionList.length - 1] = {
               ...lastSelection,
               to,
               extends: selection.extends,
@@ -114,7 +114,7 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
           } else if (!span.folded) {
             // It's a new selection; if we're not in a folded span we
             // should push it onto the stack
-            selections.push(selection);
+            selectionList.push(selection);
           }
 
           // If the selection doesn't end in this span, break out of the loop
@@ -133,30 +133,30 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
       }
 
       // If we don't have any selections on this line, we don't need to store anything
-      if (selections.length === 0) {
+      if (selectionList.length === 0) {
         continue;
       }
 
       // Lines are indexed beginning at 1 instead of 0
       const lineNumber = index + 1;
-      this.map.set(lineNumber, selections);
+      this.map.set(lineNumber, selectionList);
     }
   }
 
   public drawLine(ctx: DrawContext, lineNumber: number) {
-    let {
+    const {
       context,
       lineHeight,
       charWidth,
       offsetX: startOffsetX,
       offsetY,
     } = ctx;
-    const selections = this.get(lineNumber);
-    if (!selections) {
+    const selectionsForLine = this.get(lineNumber);
+    if (!selectionsForLine) {
       return;
     }
 
-    for (const selection of selections) {
+    for (const selection of selectionsForLine) {
       const offsetX = startOffsetX + selection.from * charWidth;
       const textWidth = (selection.to - selection.from) * charWidth;
       const fullWidth = context.canvas.width - offsetX;
@@ -185,8 +185,8 @@ export class SelectionState extends LineBasedState<Array<Selection>> {
     }
 
     // Create a mock selection
-    const mockToken = document.createElement("span");
-    mockToken.setAttribute("class", "cm-selectionBackground");
+    const mockToken = document.createElement('span');
+    mockToken.setAttribute('class', 'cm-selectionBackground');
     this.view.dom.appendChild(mockToken);
 
     // Get style information

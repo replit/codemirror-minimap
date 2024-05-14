@@ -1,6 +1,7 @@
-import { foldEffect, foldedRanges, unfoldEffect } from "@codemirror/language";
-import { StateField, EditorState, Transaction } from "@codemirror/state";
-import { Config } from "./Config";
+import { foldEffect, foldedRanges, unfoldEffect } from '@codemirror/language';
+import type { EditorState, Transaction } from '@codemirror/state';
+import { StateField } from '@codemirror/state';
+import { Config } from './Config';
 
 type Span = { from: number; to: number; folded: boolean };
 type Line = Array<Span>;
@@ -21,21 +22,22 @@ function computeLinesState(state: EditorState): Lines {
 
   while (!lineCursor.done) {
     const lineText = lineCursor.value;
-    let from = textOffset;
-    let to = from + lineText.length;
+    const from = textOffset;
+    const to = from + lineText.length;
 
     // Iterate through folded ranges until we're at or past the current line
     while (foldedRangeCursor.value && foldedRangeCursor.to < from) {
       foldedRangeCursor.next();
     }
+
     const { from: foldFrom, to: foldTo } = foldedRangeCursor;
 
     const lineStartInFold = from >= foldFrom && from < foldTo;
     const lineEndsInFold = to > foldFrom && to <= foldTo;
 
     if (lineStartInFold) {
-      let lastLine = lines.pop() ?? [];
-      let lastRange = lastLine.pop();
+      const lastLine = lines.pop() ?? [];
+      const lastRange = lastLine.pop();
 
       // If the last range is folded, we extend the folded range
       if (lastRange && lastRange.folded) {
@@ -86,10 +88,10 @@ const LinesState = StateField.define<Lines>({
 });
 
 /** Returns if the folds have changed in this update */
-function foldsChanged(transactions: readonly Transaction[]) {
+function foldsChanged(transactions: ReadonlyArray<Transaction>) {
   return transactions.find((tr) =>
-    tr.effects.find((ef) => ef.is(foldEffect) || ef.is(unfoldEffect))
+    tr.effects.find((ef) => ef.is(foldEffect) || ef.is(unfoldEffect)),
   );
 }
 
-export { foldsChanged, LinesState, Lines };
+export { foldsChanged, LinesState, type Lines };

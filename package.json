@@ -6,45 +6,30 @@
     "email": "brady@repl.it"
   },
   "type": "module",
-  "main": "./dist/index.cjs",
   "exports": {
-    "import": "./dist/index.js",
-    "require": "./dist/index.cjs"
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./internal": {
+      "import": "./src/index.ts"
+    }
   },
-  "types": "dist/index.d.ts",
-  "module": "dist/index.js",
   "sideEffects": false,
   "license": "MIT",
   "scripts": {
-    "dev": "vite ./dev",
-    "build": "cm-buildhelper ./src/index.ts",
-    "test": "cm-runtests"
+    "build": "cm-buildhelper ./src/index.ts"
   },
   "dependencies": {
     "crelt": "^1.0.5"
   },
   "peerDependencies": {
-    "@codemirror/language": "^6.9.1",
-    "@codemirror/lint": "^6.4.2",
-    "@codemirror/state": "^6.3.1",
-    "@codemirror/view": "^6.21.3",
-    "@lezer/common": "^1.1.0",
-    "@lezer/highlight": "^1.1.6"
-  },
-  "devDependencies": {
-    "@codemirror/language": "^6.9.1",
-    "@codemirror/lint": "^6.4.2",
-    "@codemirror/state": "^6.3.1",
-    "@codemirror/view": "^6.21.3",
-    "@lezer/common": "^1.1.0",
-    "@lezer/highlight": "^1.1.6",
-    "@codemirror/buildhelper": "^0.1.16",
-    "@codemirror/lang-javascript": "^6.1.4",
-    "@codemirror/merge": "^6.1.1",
-    "@codemirror/theme-one-dark": "^6.1.1",
-    "codemirror": "^6.0.1",
-    "typescript": "^5.0.2",
-    "vite": "^4.4.5"
+    "@codemirror/language": "^6.10.1",
+    "@codemirror/lint": "^6.7.0",
+    "@codemirror/state": "^6.4.1",
+    "@codemirror/view": "^6.26.3",
+    "@lezer/common": "^1.2.1",
+    "@lezer/highlight": "^1.2.0"
   },
   "repository": {
     "type": "git",

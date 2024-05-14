@@ -1,42 +1,43 @@
-import { EditorView, ViewPlugin, ViewUpdate } from "@codemirror/view";
-import { Config, Scale } from "./Config";
-import crelt from "crelt";
+import type { ViewUpdate } from '@codemirror/view';
+import { EditorView, ViewPlugin } from '@codemirror/view';
+import { Config, Scale } from './Config';
+import crelt from 'crelt';
 
 const Theme = EditorView.theme({
-  ".cm-minimap-overlay-container": {
-    position: "absolute",
+  '.cm-minimap-overlay-container': {
+    position: 'absolute',
     top: 0,
-    height: "100%",
-    width: "100%",
-    "&.cm-minimap-overlay-mouse-over": {
+    height: '100%',
+    width: '100%',
+    '&.cm-minimap-overlay-mouse-over': {
       opacity: 0,
-      transition: "visibility 0s linear 300ms, opacity 300ms",
+      transition: 'visibility 0s linear 300ms, opacity 300ms',
     },
-    "&.cm-minimap-overlay-mouse-over:hover": {
+    '&.cm-minimap-overlay-mouse-over:hover': {
       opacity: 1,
-      transition: "visibility 0s linear 0ms, opacity 300ms",
+      transition: 'visibility 0s linear 0ms, opacity 300ms',
     },
-    "&.cm-minimap-overlay-off": {
-      display: "none",
+    '&.cm-minimap-overlay-off': {
+      display: 'none',
     },
-    "& .cm-minimap-overlay": {
-      background: "rgb(121, 121, 121)",
-      opacity: "0.2",
-      position: "absolute",
+    '& .cm-minimap-overlay': {
+      background: 'rgb(121, 121, 121)',
+      opacity: '0.2',
+      position: 'absolute',
       right: 0,
       top: 0,
-      width: "100%",
-      transition: "top 0s ease-in 0ms",
-      "&:hover": {
-        opacity: "0.3",
+      width: '100%',
+      transition: 'top 0s ease-in 0ms',
+      '&:hover': {
+        opacity: '0.3',
       },
     },
-    "&.cm-minimap-overlay-active": {
+    '&.cm-minimap-overlay-active': {
       opacity: 1,
-      visibility: "visible",
-      transition: "visibility 0s linear 0ms, opacity 300ms",
-      "& .cm-minimap-overlay": {
-        opacity: "0.4",
+      visibility: 'visible',
+      transition: 'visibility 0s linear 0ms, opacity 300ms',
+      '& .cm-minimap-overlay': {
+        opacity: '0.4',
       },
     },
   },
@@ -59,17 +60,17 @@ const OverlayView = ViewPlugin.fromClass(
     }
 
     private create(view: EditorView) {
-      this.container = crelt("div", { class: "cm-minimap-overlay-container" });
-      this.dom = crelt("div", { class: "cm-minimap-overlay" });
+      this.container = crelt('div', { class: 'cm-minimap-overlay-container' });
+      this.dom = crelt('div', { class: 'cm-minimap-overlay' });
       this.container.appendChild(this.dom);
 
       // Attach event listeners for overlay
-      this.container.addEventListener("mousedown", this.onMouseDown.bind(this));
-      window.addEventListener("mouseup", this.onMouseUp.bind(this));
-      window.addEventListener("mousemove", this.onMouseMove.bind(this));
+      this.container.addEventListener('mousedown', this.onMouseDown.bind(this));
+      window.addEventListener('mouseup', this.onMouseUp.bind(this));
+      window.addEventListener('mousemove', this.onMouseMove.bind(this));
 
       // Attach the overlay elements to the minimap
-      const inner = view.dom.querySelector(".cm-minimap-inner");
+      const inner = view.dom.querySelector('.cm-minimap-inner');
       if (inner) {
         inner.appendChild(this.container);
       }
@@ -82,9 +83,9 @@ const OverlayView = ViewPlugin.fromClass(
 
     private remove() {
       if (this.container) {
-        this.container.removeEventListener("mousedown", this.onMouseDown);
-        window.removeEventListener("mouseup", this.onMouseUp);
-        window.removeEventListener("mousemove", this.onMouseMove);
+        this.container.removeEventListener('mousedown', this.onMouseDown);
+        window.removeEventListener('mouseup', this.onMouseUp);
+        window.removeEventListener('mousemove', this.onMouseMove);
         this.container.remove();
       }
     }
@@ -95,6 +96,7 @@ const OverlayView = ViewPlugin.fromClass(
 
       if (prev && !now) {
         this.remove();
+
         return;
       }
 
@@ -118,7 +120,7 @@ const OverlayView = ViewPlugin.fromClass(
       }
 
       const height = this.view.dom.clientHeight / SCALE;
-      this.dom.style.height = height + "px";
+      this.dom.style.height = height + 'px';
     }
 
     public computeTop() {
@@ -131,11 +133,14 @@ const OverlayView = ViewPlugin.fromClass(
         const height = clientHeight / SCALE;
         const maxTop = clientHeight - height;
         let scrollRatio = scrollTop / maxScrollTop;
-        if (isNaN(scrollRatio)) scrollRatio = 0;
+        if (isNaN(scrollRatio)) {
+          scrollRatio = 0;
+        }
+
         const topForOverflowing = maxTop * scrollRatio;
 
         const top = Math.min(topForOverflowing, topForNonOverflowing);
-        this.dom.style.top = top + "px";
+        this.dom.style.top = top + 'px';
       }
     }
 
@@ -146,17 +151,17 @@ const OverlayView = ViewPlugin.fromClass(
 
       const { showOverlay } = this.view.state.facet(Config);
 
-      if (showOverlay === "mouse-over") {
-        this.container.classList.add("cm-minimap-overlay-mouse-over");
+      if (showOverlay === 'mouse-over') {
+        this.container.classList.add('cm-minimap-overlay-mouse-over');
       } else {
-        this.container.classList.remove("cm-minimap-overlay-mouse-over");
+        this.container.classList.remove('cm-minimap-overlay-mouse-over');
       }
 
       const { clientHeight, scrollHeight } = this.view.scrollDOM;
       if (clientHeight === scrollHeight) {
-        this.container.classList.add("cm-minimap-overlay-off");
+        this.container.classList.add('cm-minimap-overlay-off');
       } else {
-        this.container.classList.remove("cm-minimap-overlay-off");
+        this.container.classList.remove('cm-minimap-overlay-off');
       }
     }
 
@@ -175,7 +180,8 @@ const OverlayView = ViewPlugin.fromClass(
       if (target === this.dom) {
         this._dragStartY = event.clientY;
         this._isDragging = true;
-        this.container.classList.add("cm-minimap-overlay-active");
+        this.container.classList.add('cm-minimap-overlay-active');
+
         return;
       }
 
@@ -198,7 +204,7 @@ const OverlayView = ViewPlugin.fromClass(
       if (this._isDragging && this.container) {
         this._dragStartY = undefined;
         this._isDragging = false;
-        this.container.classList.remove("cm-minimap-overlay-active");
+        this.container.classList.remove('cm-minimap-overlay-active');
       }
     }
 
@@ -213,6 +219,7 @@ const OverlayView = ViewPlugin.fromClass(
       // Without an existing position, we're just beginning to drag.
       if (!this._dragStartY) {
         this._dragStartY = event.clientY;
+
         return;
       }
 
@@ -243,6 +250,7 @@ const OverlayView = ViewPlugin.fromClass(
       if ((atTop && movingUp) || (atTop && event.clientY < canvasAbsTop)) {
         return;
       }
+
       if (
         (atBottom && movingDown) ||
         (atBottom && event.clientY > canvasAbsBot)
@@ -272,15 +280,15 @@ const OverlayView = ViewPlugin.fromClass(
       const scrollPosNonOverflowing = change * SCALE;
       this.view.scrollDOM.scrollTop = Math.max(
         scrollPosOverflowing,
-        scrollPosNonOverflowing
+        scrollPosNonOverflowing,
       );
 
       // view.scrollDOM truncates if out of bounds. We need to mimic that behavior here with min/max guard
       const top = Math.min(
         Math.max(0, change),
-        Math.min(maxTopOverflowing, maxTopNonOverflowing)
+        Math.min(maxTopOverflowing, maxTopNonOverflowing),
       );
-      this.dom.style.top = top + "px";
+      this.dom.style.top = top + 'px';
     }
 
     public destroy() {
@@ -293,7 +301,7 @@ const OverlayView = ViewPlugin.fromClass(
         requestAnimationFrame(() => this.computeTop());
       },
     },
-  }
+  },
 );
 
 export const Overlay = [Theme, OverlayView];

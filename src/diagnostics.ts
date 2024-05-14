@@ -1,17 +1,18 @@
-import { EditorView, ViewUpdate } from "@codemirror/view";
+import type { EditorView, ViewUpdate } from '@codemirror/view';
+import type { Diagnostic } from '@codemirror/lint';
 import {
-  Diagnostic,
   diagnosticCount,
   forEachDiagnostic,
   setDiagnosticsEffect,
-} from "@codemirror/lint";
+} from '@codemirror/lint';
 
-import { LineBasedState } from "./linebasedstate";
-import { DrawContext } from "./types";
-import { Lines, LinesState, foldsChanged } from "./LinesState";
-import { Config } from "./Config";
+import { LineBasedState } from './linebasedstate';
+import type { DrawContext } from './types';
+import type { Lines } from './LinesState';
+import { LinesState, foldsChanged } from './LinesState';
+import { Config } from './Config';
 
-type Severity = Diagnostic["severity"];
+type Severity = Diagnostic['severity'];
 
 export class DiagnosticState extends LineBasedState<Severity> {
   private count: number | undefined = undefined;
@@ -76,6 +77,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
             .sort(this.sort.bind(this))
             .slice(0, 1)[0];
         }
+
         this.set(i, severity);
       }
     });
@@ -95,7 +97,7 @@ export class DiagnosticState extends LineBasedState<Severity> {
       offsetX,
       offsetY /* TODO Scaling causes anti-aliasing in rectangles */,
       context.canvas.width - offsetX,
-      lineHeight
+      lineHeight,
     );
     context.fillStyle = this.color(severity);
     context.fill();
@@ -134,11 +136,16 @@ export class DiagnosticState extends LineBasedState<Severity> {
    * https://github.com/codemirror/lint/blob/e0671b43c02e72766ad1afe1579b7032fdcdb6c1/src/lint.ts#L597
    */
   private color(severity: Severity) {
-    return severity === "error"
-      ? "#d11"
-      : severity === "warning"
-      ? "orange"
-      : "#999";
+    switch (severity) {
+      case 'error':
+        return '#d11';
+      case 'warning':
+        return 'orange';
+      case 'hint':
+      case 'info':
+      default:
+        return '#999';
+    }
   }
 
   /** Sorts severity from most to least severe */
@@ -149,12 +156,14 @@ export class DiagnosticState extends LineBasedState<Severity> {
   /** Assigns a score to severity, with most severe being the highest */
   private score(s: Severity) {
     switch (s) {
-      case "error": {
+      case 'error': {
         return 3;
       }
-      case "warning": {
+
+      case 'warning': {
         return 2;
       }
+
       default: {
         return 1;
       }
