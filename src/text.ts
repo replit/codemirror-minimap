@@ -1,19 +1,17 @@
 import { LineBasedState } from "./linebasedstate";
 import { Highlighter, highlightTree } from "@lezer/highlight";
-import { ChangedRange, Tree, TreeFragment } from "@lezer/common";
-import { highlightingFor, language } from "@codemirror/language";
+import { highlightingFor, syntaxTree } from "@codemirror/language";
 import { EditorView, ViewUpdate } from "@codemirror/view";
 import { DrawContext } from "./types";
 import { Config, Options, Scale } from "./Config";
 import { LinesState, foldsChanged } from "./LinesState";
 import crelt from "crelt";
-import { ChangeSet, EditorState } from "@codemirror/state";
+import { EditorState } from "@codemirror/state";
 
 type TagSpan = { text: string; tags: string };
 type FontInfo = { color: string; font: string; lineHeight: number };
 
 export class TextState extends LineBasedState<Array<TagSpan>> {
-  private _previousTree: Tree | undefined;
   private _displayText: Required<Options>["displayText"] | undefined;
   private _fontInfoMap: Map<string, FontInfo> = new Map();
   private _themeClasses: Set<string> | undefined;
@@ -50,6 +48,11 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       return true;
     }
 
+    // If the editor's syntax tree advanced (e.g. async parsing progressed)
+    if (syntaxTree(update.state) !== syntaxTree(update.startState)) {
+      return true;
+    }
+
     return false;
   }
 
@@ -64,10 +67,10 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
         : clearTimeout(this._highlightingCallbackId);
     }
 
-    this.updateImpl(update.state, update.changes);
+    this.updateImpl(update.state);
   }
 
-  private updateImpl(state: EditorState, changes?: ChangeSet) {
+  private updateImpl(state: EditorState) {
     this.map.clear();
 
     /* Store display text setting for rendering */
@@ -78,27 +81,15 @@ export class TextState extends LineBasedState<Array<TagSpan>> {
       this._fontInfoMap.clear();
     }
 
-    /* Incrementally parse the tree based on previous tree + changes */
-    let treeFragments: ReadonlyArray<TreeFragment> | undefined = undefined;
-    if (this._previousTree && changes) {
-      const previousFragments = TreeFragment.addTree(this._previousTree);
-
-      const changedRanges: Array<ChangedRange> = [];
-      changes.iterChangedRanges((fromA, toA, fromB, toB) =>
-        changedRanges.push({ fromA, toA, fromB, toB })
-      );
-
-      treeFragments = TreeFragment.applyChanges(
-        previousFragments,
-        changedRanges
-      );
-    }
-
-    /* Parse the document into a lezer tree */
-    const docToString = state.doc.toString();
-    const parser = state.facet(language)?.parser;
-    const tree = parser ? parser.parse(docToString, treeFragments) : undefined;
-    this._previousTree = tree;
+    /**
+     * Use the editor's incrementally-maintained, work-budgeted syntax tree
+     * rather than re-parsing the entire document here. A synchronous full
+     * parse can block the main thread for seconds on large or pathological
+     * documents. The tree may not cover the whole document yet; as the
+     * editor's background parse advances, `shouldUpdate` re-runs this and
+     * highlighting converges.
+     */
+    const tree = syntaxTree(state);
 
     /* Highlight the document, and store the text and tags for each line */
     const highlighter: Highlighter = {

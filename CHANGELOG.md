@@ -1,3 +1,9 @@
+## Unreleased
+
+### Bug fixes
+
+Use the editor's incrementally-parsed syntax tree instead of synchronously re-parsing the entire document on every update. The previous full-document `parser.parse(doc.toString())` ran unbudgeted on the main thread and could block for seconds on large documents (or pathological ones, e.g. via quadratic parser edge cases), freezing the editor whenever the minimap was enabled.
+
 ## 0.5.1 (2023-10-25)
 
 ### Bug fixes
